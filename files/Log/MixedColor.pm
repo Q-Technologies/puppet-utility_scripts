@@ -80,14 +80,14 @@ sub quote {
 sub debug_msg {
     my $self = shift;
     my $msg = shift;
-    info_msg( $msg, DEBUG_MSG );
+    info_msg( $self, $msg, DEBUG_MSG );
 }
 
 sub fatal_err {
     my $self = shift;
     my $msg = shift;
     my $val = shift;
-    $val = 1 if ! defined( $val );
+    $val = 1 unless defined( $val );
     info_msg( $self, $msg, ERROR_MSG );
     exit $val;
 }
