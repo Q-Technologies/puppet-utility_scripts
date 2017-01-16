@@ -1,0 +1,113 @@
+#!/bin/bash
+################################################################################
+#
+# Script to automate the promotion of Puppet code from one environment to the
+# next.
+#
+# Author: Matthew Mallard
+# Website: www.q-technologies.com.au
+# Date: 2nd September 2016
+#
+################################################################################
+
+
+set -a
+
+change_no=$1
+src_branch=$2
+dst_branch=$3
+
+config=/usr/local/etc/puppet_promote_code_settings
+if [[ -r ${config:?} ]]; then
+    . ${config:?}
+elif [[ -r $(basename ${config:?}) ]]; then
+    . $(basename ${config:?})
+else
+    echo "Could not find the settings file: ${config:?}"
+    exit 1
+fi
+
+# do some quick validation of the settings
+if [[ -z $server || -z $port || -z $wd ]]; then
+    echo "There was a problem reading the settings file - does it exist?"
+    exit 1
+fi
+GIT_SSH_COMMAND="ssh -i ${key_file:?}"
+
+# Make sure the script is not running as root
+if [[ $(whoami) = 'root' ]]; then
+    echo "Do not run this script as root!"
+    exit 1
+fi
+# unset GIT_SSH_COMMAND unless Control-M is running the scripto
+unset GIT_SSH_COMMAND
+
+# Need to check what user gets passed through as making the commit
+account=$(whoami)
+
+################################################################################
+#
+# Some functions for common cammands
+#
+################################################################################
+
+function cleanup (){
+    rm -fr ${wd:?}/${repo_path:?}
+}
+
+function check_err (){
+    code=$1
+    msg=$2
+    if [[ ${code:?} -ne 0 ]]; then
+        cleanup
+        echo ${msg:?}
+        exit 1
+    fi
+}
+
+################################################################################
+#
+# Merge the specified Git branches
+#
+################################################################################
+
+cleanup
+
+cd ${wd:?}
+check_err $? "Could not change into the working directory: ${wd:?}" 
+
+repo_url=ssh://${account:?}@${server:?}:${port:?}/${repo_path:?}.git
+git clone ${repo_url:?}
+check_err $? "Failed to clone repo: ${repo_url:?}"
+
+cd ${repo_path:?}
+check_err $? "Could not change into the repo path: ${repo_path:?}"
+
+git checkout ${src_branch:?}
+check_err $? "Could not switch to branch: ${src_branch:?}"
+
+git pull
+check_err $? "Could not pull ${src_branch:?} from ${repo_url:?}"
+
+git checkout ${dst_branch:?}
+check_err $? "Could not switch to branch: ${dst_branch:?}"
+
+git pull
+check_err $? "Could not pull ${dst_branch:?} from ${repo_url:?}"
+
+git merge --no-ff -m "Merging ${src_branch:?} into ${dst_branch:?} according to change number: ${change_no:?}" ${src_branch:?}
+check_err $? "Could not merge ${src_branch:?} into ${dst_branch:?}"
+
+git push
+check_err $? "Could not push ${dst_branch:?} to ${repo_url:?}"
+
+cleanup
+
+################################################################################
+#
+# Deploy the destination branch into Puppet
+#
+################################################################################
+
+sudo -i /opt/puppetlabs/bin/puppet code deploy ${dst_branch:?} -w
+check_err $? "There was an error deploying ${dst_branch:?} into Puppet"

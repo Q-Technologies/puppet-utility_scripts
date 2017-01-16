@@ -1,0 +1,37 @@
+{
+  "name": "qtechnologies/master_utilities",
+  "version": "1.0.0",
+  "author": "Q-Technologies",
+  "summary": "Puppet module that provides some Puppet Master utility scripts",
+  "license": "Apache-2.0",
+  "tags": ["management","monitoring","process","baseline","change control"],
+  "source": "https://github.com/Q-Technologies/puppet-master_utilities.git",
+  "project_page": "https://github.com/Q-Technologies/puppet-master_utilities",
+  "issues_url": "https://github.com/Q-Technologies/puppet-master_utilities/issues",
+  "dependencies": [],
+  "operatingsystem_support": [
+    {
+      "operatingsystem":"Debian",
+      "operatingsystemrelease": [
+        "7.0",
+        "8.0"
+      ]
+    },
+    {
+      "operatingsystem":"RedHat",
+      "operatingsystemrelease": [
+        "6.0",
+        "7.0"
+      ]
+    },
+    {
+      "operatingsystem": "SLES",
+      "operatingsystemrelease": [ 
+        "11",
+        "12"
+     ]
+    }
+  ],
+  "data_provider": "hiera"
+}
+
