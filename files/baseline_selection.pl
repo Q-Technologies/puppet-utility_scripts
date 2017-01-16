@@ -44,6 +44,7 @@ my $parent = "All Nodes";
 my $baseline_group_prefix = $config->{baseline_group_prefix}." : ";
 my $baseline_group_parent = $baseline_group_prefix."Default";
 my $def_baseline_date = $config->{def_baseline_date};
+my $environment = $config->{environment};
 
 my $classify = Puppet::Classify->new( 
                                       cert_name   => $config->{puppet_classify_cert},
@@ -112,7 +113,7 @@ sub init_baseline {
     my $rule = $config->{baseline_match_nodes};
     my $classes = { $class => {} };
     my $group_def = { name => $name,
-                      environment => 'production',
+                      environment => $environment,
                       description => "Parent and default group for nodes being assigned to an OS Baseline (SOE release)",
                       parent => $parent_id,
                       rule => $rule,
@@ -289,7 +290,7 @@ sub add_group {
     my $rule = [];
     my $classes = { $class => {} };
     my $group_def = { name => $name,
-                      environment => 'production',
+                      environment => $environment,
                       description => "Group to assign nodes to the OS Baseline (SOE release): $date",
                       parent => $parent_id,
                       #rule => $rule,
