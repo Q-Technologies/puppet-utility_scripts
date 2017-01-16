@@ -31,6 +31,7 @@ use Term::ANSIColor;
 # Command line argument processing
 our( $opt_a, $opt_g, $opt_h, $opt_v, $opt_d, $opt_f );
 getopts('a:g:hvdf');
+$Getopt::Std::STANDARD_HELP_VERSION = 1;
 
 # Constants
 use constant DEBUG_MSG => "debug";
@@ -45,6 +46,7 @@ my $baseline_group_prefix = $config->{baseline_group_prefix}." : ";
 my $baseline_group_parent = $baseline_group_prefix."Default";
 my $def_baseline_date = $config->{def_baseline_date};
 my $environment = $config->{environment};
+my @actions = qw(init_baseline empty_group add_to_group list_group list_groups add_group purge_old_nodes remove_from_group remove_group );
 
 my $classify = Puppet::Classify->new( 
                                       cert_name   => $config->{puppet_classify_cert},
@@ -61,9 +63,20 @@ my $puppetdb_nodes = $puppetdb->results;
 
 # Preliminary input checks
 if( $opt_h ){
-    say "$0 -a action -g group [-f] [-v] [-d] node1 [node2] [node3]";
+    say "\n$0 -a action -g group [-f] [-v] [-d] node1 [node2] [node3]";
+    say "\nThe following actions are supported:";
+    for( @actions ){
+        say "\t".$_;
+    }
+    say;
+    say "'group' is the unique baseline identifier, usually the date, e.g. 2017-01-13";
+    say;
+    say "-f is force. Sometimes required as a layer of safety";
+    say "-v is to show verbose messages";
+    say "-d is to show debug messages";
+    say;
+    exit;
 }
-my @actions = qw(init_baseline empty_group add_to_group list_group list_groups add_group purge_old_nodes remove_from_group remove_group );
 my $action_re = join("|", @actions);
 $action_re = qr/$action_re/;
 fatal_err( "You need to specify the script action: -a ".join(" | ", @actions ) ) if not $opt_a =~ $action_re;

@@ -8,8 +8,21 @@ The Baseline selection script provides a command line interface to move groups o
 OS baseline groups. See https://github.com/Q-Technologies/lobm for more information about how to create an OS baseline.
 
 #### Usage
-* Create groups in Enterprise Console
-T.B.A
+1. Set up a certificate that can be used to interact with the Node Classifier.  Follow the documentation here: https://docs.puppet.com/pe/latest/nc_forming_requests.html#whitelisted-certificate (Note: I needed to do a full restart rather than just a reload for the certificate to be recognized).  Specify the name of the certificate in the hiera data as per the Configuration Instructions.
+
+1. Create the parent group in Enterprise Console. You need to make sure the repo_class you have specified in hiera is in the environment you specified:
+    ```
+    puppet_baseline_selection.pl -a init_baseline
+    ```
+1. Add a group matching an OS Baseline you have already created
+    ```
+    puppet_baseline_selection.pl -a add_group -g 2017-01-13
+    ```
+1. Pin nodes to this group so they receive the correct repositories
+    ```
+    puppet_baseline_selection.pl -a add_to_group -g 2017-01-13 dev015.localdomain
+    ```
+More options are available.  See `puppet_baseline_selection.pl -h` for more details.
 
 ### Code Promotion
 This is a bash script that facilitates a process whereby change records can be recorded as part of promoting code.  At
@@ -61,6 +74,7 @@ master_utilities::baseline_selection_config:
   locallibs: [ /usr/local/lib/perl5 ]
   def_baseline_date: '2017-01-13'
   repo_class: profile::repos
+  environment: dev
   baseline_group_prefix: Baseline
   baseline_match_nodes: 
     - 'and'
