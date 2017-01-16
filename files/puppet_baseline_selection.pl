@@ -191,13 +191,13 @@ sub remove_from_group {
         $gid = $group->{id};
         $group = $group->{name};
     } else {
-        $log->debug_msg( "Checking whether ".$log->var($group)." exists" );
+        $log->debug_msg( "Checking whether ".$log->quote($group)." exists" );
         $gid = $classify->get_group_id( $group );
-        $log->fatal_err( "Could not find the specified group (".$log->var($group).") are you sure it's an OS Baseline (SOE) group?" ) if not $gid;
+        $log->fatal_err( "Could not find the specified group (".$log->quote($group).") are you sure it's an OS Baseline (SOE) group?" ) if not $gid;
     }
 
     my @deleted;
-    $log->debug_msg( "Fetching the existing rule for ".$log->var($group) );
+    $log->debug_msg( "Fetching the existing rule for ".$log->quote($group) );
     my $rule = $classify->get_group_rule( $group );
     if( $rule ){
         if( $rule->[0] eq 'or' ){
@@ -208,7 +208,7 @@ sub remove_from_group {
                     if( $node eq $rule->[$i][2] ){
                         splice @$rule, $i, 1;
                         $i--; $max--;
-                        $log->debug_msg( $log->var($node)." was deleted from the rule" );
+                        $log->debug_msg( $log->quote($node)." was deleted from the rule" );
                         push @deleted, $node;
                         next;
                     }
@@ -219,15 +219,15 @@ sub remove_from_group {
             $log->debug_msg( "The specified rule does not seem to have pinned nodes" );
         }
     } else {
-        $log->info_msg( "The specified rule for ".$log->var($group)." does not exist - nothing to do" );
+        $log->info_msg( "The specified rule for ".$log->quote($group)." does not exist - nothing to do" );
         return;
     }
 
     if( @deleted > 0 ){
-        $log->info_msg( "Updating the group: ".$log->var($group) );
+        $log->info_msg( "Updating the group: ".$log->quote($group) );
         $classify->update_group_rule( $gid, $rule );
     } else {
-        $log->info_msg( "None of the specified nodes were found in ".$log->var($group) );
+        $log->info_msg( "None of the specified nodes were found in ".$log->quote($group) );
     }
 }
 
@@ -250,20 +250,20 @@ sub add_to_group {
     my $group = shift;
     my $nodes = shift;
 
-    $log->debug_msg( "Checking whether ".$log->var($group)." exists" );
+    $log->debug_msg( "Checking whether ".$log->quote($group)." exists" );
     my $gid = $classify->get_group_id( $group );
-    $log->fatal_err( "Could not find the specified group (".$log->var($group).") are you sure it's an OS Baseline (SOE) group?" ) if not $gid;
+    $log->fatal_err( "Could not find the specified group (".$log->quote($group).") are you sure it's an OS Baseline (SOE) group?" ) if not $gid;
 
-    $log->debug_msg( "Fetching the existing rule for ".$log->var($group) );
+    $log->debug_msg( "Fetching the existing rule for ".$log->quote($group) );
     my $old_rule = $classify->get_group_rule( $group );
 
     my @host_matches;
     for my $node( @$nodes ){
         if( in_puppetdb( $node ) ){
-            $log->debug_msg( $log->var($node)." will be added to the rule unless it is already present" );
+            $log->debug_msg( $log->quote($node)." will be added to the rule unless it is already present" );
             push @host_matches, [ '=', "name", $node ];
         } else {
-            $log->debug_msg( $log->var($node)." will not be added to the rule as it is not found in the PuppetDB" );
+            $log->debug_msg( $log->quote($node)." will not be added to the rule as it is not found in the PuppetDB" );
         }
     }
     # no point continuing if there are no valid hosts to add
@@ -280,7 +280,7 @@ sub add_to_group {
                         $found = 1;
                     }
                 }
-                $log->debug_msg( $log->var($nhost->[2])." was already present, ignoring" ) if $found;
+                $log->debug_msg( $log->quote($nhost->[2])." was already present, ignoring" ) if $found;
                 push @$old_rule, $nhost if not $found;
             }
             $rule = $old_rule;
@@ -291,7 +291,7 @@ sub add_to_group {
         $rule = [ 'or', @host_matches ];
     }
 
-    $log->info_msg( "Updating the group: ".$log->var($group) );
+    $log->info_msg( "Updating the group: ".$log->quote($group) );
     $classify->update_group_rule( $gid, $rule );
 }
 
@@ -300,7 +300,7 @@ sub add_group {
     my $name = shift;
     my $nodes = shift;
 
-    $log->fatal_err( "The group name (".$log->var($name).") must match YYYY-MM-DD" ) if $name !~ /^$baseline_group_prefix(\d{4}-\d\d-\d\d)$/;
+    $log->fatal_err( "The group name (".$log->quote($name).") must match YYYY-MM-DD" ) if $name !~ /^$baseline_group_prefix(\d{4}-\d\d-\d\d)$/;
     my $date = $1;
 
     my $rule = [];
@@ -323,10 +323,10 @@ sub add_group_safe {
     
     my $gid = $classify->get_group_id( $name );
     if( ( $gid and $opt_f and try_remove_group( $name )) or not $gid ){
-        $log->info_msg( "Creating the group: ".$log->var($name) );
+        $log->info_msg( "Creating the group: ".$log->quote($name) );
         $classify->create_group( $group_def );
     } elsif( $gid ){
-        $log->fatal_err( "The group ".$log->var($name)." already exists - it will only be redefined if you specify '-f'" );
+        $log->fatal_err( "The group ".$log->quote($name)." already exists - it will only be redefined if you specify '-f'" );
     }
 
 }
@@ -335,7 +335,7 @@ sub try_remove_group {
     my $name = shift;
     my $gid = $classify->get_group_id( $name );
     if( not $gid ) { 
-        $log->info_msg( $log->var($name)." doesn't exist - nothing to delete" );
+        $log->info_msg( $log->quote($name)." doesn't exist - nothing to delete" );
         return;
     }
     my $child_groups;
@@ -344,10 +344,10 @@ sub try_remove_group {
     #say $@ if $@;
     my $children = $child_groups->[0]{children};
     if( $children ){
-        $log->fatal_err( "The group ".$log->var($name)." has children - it will not be removed even if you specify '-f'" );
+        $log->fatal_err( "The group ".$log->quote($name)." has children - it will not be removed even if you specify '-f'" );
     } else {
-        $log->info_msg( "Deleting ".$log->var($name)." as 'force' was specified" ) if $opt_f;
-        $log->info_msg( "Deleting ".$log->var($name)." as 'remove_group' was invocated directly" ) if not $opt_f;
+        $log->info_msg( "Deleting ".$log->quote($name)." as 'force' was specified" ) if $opt_f;
+        $log->info_msg( "Deleting ".$log->quote($name)." as 'remove_group' was invocated directly" ) if not $opt_f;
         $classify->delete_group( $gid );
         return 1;
     }
