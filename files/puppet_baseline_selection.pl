@@ -13,50 +13,53 @@
 use strict;
 use 5.10.0;
 use JSON;
-use vars qw/$config/;
+use vars qw/$puppet_config/;
 BEGIN { 
   local $/;
-  open( my $fh, '<', "/usr/local/etc/baseline_selection_config.json" );
+  open( my $fh, '<', "/usr/local/etc/puppet_perl_config.json" );
   my $json_text   = <$fh>;
-  $config = decode_json( $json_text )or die $!;    
+  $puppet_config = decode_json( $json_text )or die $!;    
 }
-use lib @{$config->{locallibs}};
+use lib @{$puppet_config->{locallibs}};
 use Data::Dumper;
 use String::CamelCase qw( camelize );
 use Puppet::Classify;
 use Puppet::DB;
 use Getopt::Std;
-use Term::ANSIColor;
+use Log::MixedColor;
 
 # Command line argument processing
 our( $opt_a, $opt_g, $opt_h, $opt_v, $opt_d, $opt_f );
 getopts('a:g:hvdf');
 $Getopt::Std::STANDARD_HELP_VERSION = 1;
 
-# Constants
-use constant DEBUG_MSG => "debug";
-use constant ERROR_MSG => "error";
+# Set up logging
+my $log = Log::MixedColor->new( verbose => $opt_v, debug => $opt_d );
+
+# Read in baseline config
+open( my $fh, '<', "/usr/local/etc/baseline_selection_config.json" );
+my $baseline_config = decode_json( <$fh> )or die $!;    
 
 # Globals
 my $nodes;
 my $parent_id;
-my $class = $config->{repo_class};
+my $class = $baseline_config->{repo_class};
 my $parent = "All Nodes";
-my $baseline_group_prefix = $config->{baseline_group_prefix}." : ";
+my $baseline_group_prefix = $baseline_config->{baseline_group_prefix}." : ";
 my $baseline_group_parent = $baseline_group_prefix."Default";
-my $def_baseline_date = $config->{def_baseline_date};
-my $environment = $config->{environment};
+my $def_baseline_date = $baseline_config->{def_baseline_date};
+my $environment = $baseline_config->{environment};
 my @actions = qw(init_baseline empty_group add_to_group list_group list_groups add_group purge_old_nodes remove_from_group remove_group );
 
 my $classify = Puppet::Classify->new( 
-                                      cert_name   => $config->{puppet_classify_cert},
-                                      api_server  => $config->{puppet_classify_host},
-                                      api_port    => $config->{puppet_classify_port},
+                                      cert_name   => $puppet_config->{puppet_classify_cert},
+                                      api_server  => $puppet_config->{puppet_classify_host},
+                                      api_port    => $puppet_config->{puppet_classify_port},
                                     );
 
 my $puppetdb = Puppet::DB->new(       
-                                      server_name => $config->{puppetdb_host},
-                                      server_port => $config->{puppetdb_port},
+                                      server_name => $puppet_config->{puppetdb_host},
+                                      server_port => $puppet_config->{puppetdb_port},
                                     );
 $puppetdb->refresh("nodes", {});
 my $puppetdb_nodes = $puppetdb->results;
@@ -79,15 +82,15 @@ if( $opt_h ){
 }
 my $action_re = join("|", @actions);
 $action_re = qr/$action_re/;
-fatal_err( "You need to specify the script action: -a ".join(" | ", @actions ) ) if not $opt_a =~ $action_re;
-fatal_err( "You need to specify the group to act upon (-g)" ) if not $opt_g and $opt_a !~ /init_baseline|list_groups|purge_old_nodes/;
+$log->fatal_err( "You need to specify the script action: -a ".join(" | ", @actions ) ) if not $opt_a =~ $action_re;
+$log->fatal_err( "You need to specify the group to act upon (-g)" ) if not $opt_g and $opt_a !~ /init_baseline|list_groups|purge_old_nodes/;
 
 # Mainline
 my $groups = $classify->get_groups();
 #say Dumper( $groups );
 
 my $baseline_parent_id = $classify->get_group_id( $baseline_group_parent );
-fatal_err( "Could not find the ID of the '$baseline_group_parent' group which is required.\n  Perhaps you need to run the 'init_baseline' action." ) if not $baseline_group_parent and $opt_a ne "init_baseline";
+$log->fatal_err( "Could not find the ID of the '$baseline_group_parent' group which is required.\n  Perhaps you need to run the 'init_baseline' action." ) if not $baseline_group_parent and $opt_a ne "init_baseline";
 
 # See if we need to add the prefix to the group
 $opt_g = $baseline_group_prefix.$opt_g if( $opt_g !~ /^$baseline_group_prefix/ );
@@ -95,10 +98,10 @@ $opt_g = $baseline_group_prefix.$opt_g if( $opt_g !~ /^$baseline_group_prefix/ )
 if( $opt_a eq "empty_group" ){
     empty_group( $opt_g );
 } elsif( $opt_a eq "add_to_group" ){
-    fatal_err( "You need to specify the nodes to add to the group" ) if not @ARGV;
+    $log->fatal_err( "You need to specify the nodes to add to the group" ) if not @ARGV;
     add_to_group( $opt_g, \@ARGV );
 } elsif( $opt_a eq "remove_from_group" ){
-    fatal_err( "You need to specify the nodes to remove from the group" ) if not @ARGV;
+    $log->fatal_err( "You need to specify the nodes to remove from the group" ) if not @ARGV;
     remove_from_group( $opt_g, \@ARGV );
 } elsif( $opt_a eq "add_group" ){
     add_group( $baseline_parent_id, $opt_g, \@ARGV);
@@ -112,10 +115,10 @@ if( $opt_a eq "empty_group" ){
     list_groups();
 } elsif( $opt_a eq "init_baseline" ){
     my $parent_id = $classify->get_group_id( $parent );
-    fatal_err( "Could not find the ID of the '$parent' group which is required.\n  Did someone delete this group accidently?." ) if not $parent_id;
+    $log->fatal_err( "Could not find the ID of the '$parent' group which is required.\n  Did someone delete this group accidently?." ) if not $parent_id;
     init_baseline( $parent_id, $baseline_group_parent );
 } else {
-    fatal_err( "The action: '$opt_a' is not known to the script" );
+    $log->fatal_err( "The action: '$opt_a' is not known to the script" );
     exit 1;
 }
 
@@ -123,7 +126,7 @@ sub init_baseline {
     my $parent_id = shift;
     my $name = shift;
 
-    my $rule = $config->{baseline_match_nodes};
+    my $rule = $baseline_config->{baseline_match_nodes};
     my $classes = { $class => {} };
     my $group_def = { name => $name,
                       environment => $environment,
@@ -145,7 +148,7 @@ sub purge_old_nodes {
     eval { $child_groups = $classify->get_child_groups( $parent_id ) };
     #say $@ if $@;
     if( not $child_groups ){
-        debug_msg( "There are no children groups" );
+        $log->debug_msg( "There are no children groups" );
         return;
     }
     my $children = $child_groups->[0]{children};
@@ -188,13 +191,13 @@ sub remove_from_group {
         $gid = $group->{id};
         $group = $group->{name};
     } else {
-        debug_msg( "Checking whether ".var($group)." exists" );
+        $log->debug_msg( "Checking whether ".var($group)." exists" );
         $gid = $classify->get_group_id( $group );
-        fatal_err( "Could not find the specified group (".var($group).") are you sure it's an OS Baseline (SOE) group?" ) if not $gid;
+        $log->fatal_err( "Could not find the specified group (".var($group).") are you sure it's an OS Baseline (SOE) group?" ) if not $gid;
     }
 
     my @deleted;
-    debug_msg( "Fetching the existing rule for ".var($group) );
+    $log->debug_msg( "Fetching the existing rule for ".var($group) );
     my $rule = $classify->get_group_rule( $group );
     if( $rule ){
         if( $rule->[0] eq 'or' ){
@@ -205,7 +208,7 @@ sub remove_from_group {
                     if( $node eq $rule->[$i][2] ){
                         splice @$rule, $i, 1;
                         $i--; $max--;
-                        debug_msg( var($node)." was deleted from the rule" );
+                        $log->debug_msg( var($node)." was deleted from the rule" );
                         push @deleted, $node;
                         next;
                     }
@@ -213,18 +216,18 @@ sub remove_from_group {
             }
             $rule = undef if @$rule == 1;
         } else {
-            debug_msg( "The specified rule does not seem to have pinned nodes" );
+            $log->debug_msg( "The specified rule does not seem to have pinned nodes" );
         }
     } else {
-        info_msg( "The specified rule for ".var($group)." does not exist - nothing to do" );
+        $log->info_msg( "The specified rule for ".var($group)." does not exist - nothing to do" );
         return;
     }
 
     if( @deleted > 0 ){
-        info_msg( "Updating the group: ".var($group) );
+        $log->info_msg( "Updating the group: ".var($group) );
         $classify->update_group_rule( $gid, $rule );
     } else {
-        info_msg( "None of the specified nodes were found in ".var($group) );
+        $log->info_msg( "None of the specified nodes were found in ".var($group) );
     }
 }
 
@@ -238,7 +241,7 @@ sub hosts_from_pinned_rule {
             push @nodes, $rule->[2] if( $rule->[0] eq '=' and $rule->[1] eq 'name' );
         }
     } else {
-        debug_msg( "The specified rule does not seem to have pinned nodes" );
+        $log->debug_msg( "The specified rule does not seem to have pinned nodes" );
     }
     return \@nodes;
 }
@@ -247,20 +250,20 @@ sub add_to_group {
     my $group = shift;
     my $nodes = shift;
 
-    debug_msg( "Checking whether ".var($group)." exists" );
+    $log->debug_msg( "Checking whether ".var($group)." exists" );
     my $gid = $classify->get_group_id( $group );
-    fatal_err( "Could not find the specified group (".var($group).") are you sure it's an OS Baseline (SOE) group?" ) if not $gid;
+    $log->fatal_err( "Could not find the specified group (".var($group).") are you sure it's an OS Baseline (SOE) group?" ) if not $gid;
 
-    debug_msg( "Fetching the existing rule for ".var($group) );
+    $log->debug_msg( "Fetching the existing rule for ".var($group) );
     my $old_rule = $classify->get_group_rule( $group );
 
     my @host_matches;
     for my $node( @$nodes ){
         if( in_puppetdb( $node ) ){
-            debug_msg( var($node)." will be added to the rule unless it is already present" );
+            $log->debug_msg( var($node)." will be added to the rule unless it is already present" );
             push @host_matches, [ '=', "name", $node ];
         } else {
-            debug_msg( var($node)." will not be added to the rule as it is not found in the PuppetDB" );
+            $log->debug_msg( var($node)." will not be added to the rule as it is not found in the PuppetDB" );
         }
     }
     # no point continuing if there are no valid hosts to add
@@ -277,7 +280,7 @@ sub add_to_group {
                         $found = 1;
                     }
                 }
-                debug_msg( var($nhost->[2])." was already present, ignoring" ) if $found;
+                $log->debug_msg( var($nhost->[2])." was already present, ignoring" ) if $found;
                 push @$old_rule, $nhost if not $found;
             }
             $rule = $old_rule;
@@ -288,7 +291,7 @@ sub add_to_group {
         $rule = [ 'or', @host_matches ];
     }
 
-    info_msg( "Updating the group: ".var($group) );
+    $log->info_msg( "Updating the group: ".var($group) );
     $classify->update_group_rule( $gid, $rule );
 }
 
@@ -297,7 +300,7 @@ sub add_group {
     my $name = shift;
     my $nodes = shift;
 
-    fatal_err( "The group name (".var($name).") must match YYYY-MM-DD" ) if $name !~ /^$baseline_group_prefix(\d{4}-\d\d-\d\d)$/;
+    $log->fatal_err( "The group name (".var($name).") must match YYYY-MM-DD" ) if $name !~ /^$baseline_group_prefix(\d{4}-\d\d-\d\d)$/;
     my $date = $1;
 
     my $rule = [];
@@ -320,10 +323,10 @@ sub add_group_safe {
     
     my $gid = $classify->get_group_id( $name );
     if( ( $gid and $opt_f and try_remove_group( $name )) or not $gid ){
-        info_msg( "Creating the group: ".var($name) );
+        $log->info_msg( "Creating the group: ".var($name) );
         $classify->create_group( $group_def );
     } elsif( $gid ){
-        fatal_err( "The group ".var($name)." already exists - it will only be redefined if you specify '-f'" );
+        $log->fatal_err( "The group ".var($name)." already exists - it will only be redefined if you specify '-f'" );
     }
 
 }
@@ -332,7 +335,7 @@ sub try_remove_group {
     my $name = shift;
     my $gid = $classify->get_group_id( $name );
     if( not $gid ) { 
-        info_msg( var($name)." doesn't exist - nothing to delete" );
+        $log->info_msg( var($name)." doesn't exist - nothing to delete" );
         return;
     }
     my $child_groups;
@@ -341,10 +344,10 @@ sub try_remove_group {
     #say $@ if $@;
     my $children = $child_groups->[0]{children};
     if( $children ){
-        fatal_err( "The group ".var($name)." has children - it will not be removed even if you specify '-f'" );
+        $log->fatal_err( "The group ".var($name)." has children - it will not be removed even if you specify '-f'" );
     } else {
-        info_msg( "Deleting ".var($name)." as 'force' was specified" ) if $opt_f;
-        info_msg( "Deleting ".var($name)." as 'remove_group' was invocated directly" ) if not $opt_f;
+        $log->info_msg( "Deleting ".var($name)." as 'force' was specified" ) if $opt_f;
+        $log->info_msg( "Deleting ".var($name)." as 'remove_group' was invocated directly" ) if not $opt_f;
         $classify->delete_group( $gid );
         return 1;
     }
@@ -365,57 +368,4 @@ sub list_groups {
         say $group->{name};
     }
 }
-
-
-sub info_msg {
-    chomp( my $msg = shift );
-    my $level = shift;
-    $level = "" if ! $level;
-    my $color = "green";
-    my $var_col = "black on_white";
-    my $prefix = "Info";
-    my $say = ($opt_v or $opt_d);
-    my $extra_nl = "";
-    my $excl = "";
-    if( $level eq DEBUG_MSG ){
-        $color = "magenta";
-        $var_col = "blue";
-        $prefix = "Debug";
-        $say = $opt_d;
-    } elsif( $level eq ERROR_MSG ){
-        $color = "red";
-        $var_col = "yellow";
-        $prefix = "Error";
-        $say = 1;
-        $extra_nl = "\n";
-        $excl = "!";
-    }
-    for( $msg ){
-        my $code1 = color("reset").color( $var_col );
-        my $code2 = color("reset").color( $color );
-        s/%%/$code1/g;
-        s/##/$code2/g;
-    }
-    say color($color).$extra_nl.$prefix.": ".$msg.$excl.$extra_nl.color("reset") if $say;
-}
-
-sub var {
-    return '%%'.shift.'##';
-}
-
-sub debug_msg {
-    my $msg = shift;
-    info_msg( $msg, DEBUG_MSG );
-}
-
-sub fatal_err {
-    my $msg = shift;
-    my $val = shift;
-    $val = 1 if ! defined( $val );
-    info_msg( $msg, ERROR_MSG );
-    #exit $val if not $ignore_exit;
-    #die;
-    exit $val;
-}
-
 

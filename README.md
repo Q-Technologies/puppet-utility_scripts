@@ -8,7 +8,10 @@ The Baseline selection script provides a command line interface to move groups o
 OS baseline groups. See https://github.com/Q-Technologies/lobm for more information about how to create an OS baseline.
 
 #### Usage
-1. Set up a certificate that can be used to interact with the Node Classifier.  Follow the documentation here: https://docs.puppet.com/pe/latest/nc_forming_requests.html#whitelisted-certificate (Note: I needed to do a full restart rather than just a reload for the certificate to be recognized).  Specify the name of the certificate in the hiera data as per the Configuration Instructions.
+1. Set up a certificate that can be used to interact with the Node Classifier.  Follow the documentation here: 
+https://docs.puppet.com/pe/latest/nc_forming_requests.html#whitelisted-certificate (Note: I needed to do a full 
+restart rather than just a reload for the certificate to be recognized).  Specify the name of the certificate in the 
+hiera data as per the Configuration Instructions.
 
 1. Create the parent group in Enterprise Console. You need to make sure the repo_class you have specified in hiera is in the environment you specified:
     ```
