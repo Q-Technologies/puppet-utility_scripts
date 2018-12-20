@@ -8,11 +8,6 @@ class utility_scripts (
   # Manage custom oid mappings
   Data $oid_mapping                                                   = {},
 
-  # Auto-signing
-  String $autosign_script_path                                        = "${::settings::confdir}/autosign.pl",
-  Data   $autosign_config                                             = {},
-  String $autosign_logic,
-
   # Perl config
   String $perl_path                                                   = '/usr/bin/perl',
   Boolean $perl_mods_install                                          = true,
@@ -56,7 +51,7 @@ class utility_scripts (
   #   |____/ \__,_|\___|_|\_\\__,_| .__/
   #                               |_|
   ################################################################################
-  
+
   file { $dump_classifier_path:
     ensure  => file,
     owner   => 'root',
@@ -87,10 +82,10 @@ class utility_scripts (
 
   # Need to make sure the parameters have decent defaults and the correct hiera is being sourced
   # We need to exit this class cleanly when data not set, but notify the admin something is not right
-  if ( empty(puppet_perl_config) and $perl_mods_install ) or 
-     ( empty(puppet_promote_config) and $puppet_promote_install )
-     {
-    notify { 'Data not set correctly!  Make sure the hiera data is populated': 
+  if ( empty(puppet_perl_config) and $perl_mods_install ) or
+    ( empty(puppet_promote_config) and $puppet_promote_install )
+    {
+    notify { 'Data not set correctly!  Make sure the hiera data is populated':
     }
   } else {
 
@@ -114,7 +109,9 @@ class utility_scripts (
       owner   => 'root',
       group   => 'root',
       mode    => '0750',
-      content => epp('utility_scripts/promote_code/puppet_promote_code.sh.epp', { config_path => "${scripts_config_path}/puppet_promote_code_settings" } ),
+      content => epp( 'utility_scripts/promote_code/puppet_promote_code.sh.epp', {
+                        config_path => "${scripts_config_path}/puppet_promote_code_settings",
+                      } ),
     }
 
     file { 'puppet_perl_config':
@@ -123,7 +120,7 @@ class utility_scripts (
       owner   => 'root',
       group   => 'root',
       mode    => '0640',
-      content  => inline_template("<%= @puppet_perl_config.to_yaml %>"),
+      content => inline_template('<%= @puppet_perl_config.to_yaml %>'),
     }
 
     file { 'puppet_list_nodes.pl':
@@ -132,7 +129,9 @@ class utility_scripts (
       owner   => 'root',
       group   => 'root',
       mode    => '0750',
-      content => epp('utility_scripts/puppet_list_nodes.pl.epp', { config_path => "${scripts_config_path}/puppet_perl_config_settings.yaml" } ),
+      content => epp( 'utility_scripts/puppet_list_nodes.pl.epp', {
+                      config_path => "${scripts_config_path}/puppet_perl_config_settings.yaml",
+                      } ),
     }
 
   }
