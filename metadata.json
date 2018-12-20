@@ -4,21 +4,23 @@
   "author": "Q-Technologies",
   "summary": "installs scripts to help with the admin/consumption of Puppet",
   "license": "Apache-2.0",
-  "tags": ["management","monitoring","process","baseline","change control"],
   "source": "https://github.com/Q-Technologies/puppet-utility_scripts.git",
   "project_page": "https://github.com/Q-Technologies/puppet-utility_scripts",
   "issues_url": "https://github.com/Q-Technologies/puppet-utility_scripts/issues",
-  "dependencies": [],
+  "dependencies": [
+
+  ],
+  "data_provider": "hiera",
   "operatingsystem_support": [
     {
-      "operatingsystem":"Debian",
+      "operatingsystem": "Debian",
       "operatingsystemrelease": [
         "7.0",
         "8.0"
       ]
     },
     {
-      "operatingsystem":"RedHat",
+      "operatingsystem": "RedHat",
       "operatingsystemrelease": [
         "6.0",
         "7.0"
@@ -26,12 +28,26 @@
     },
     {
       "operatingsystem": "SLES",
-      "operatingsystemrelease": [ 
+      "operatingsystemrelease": [
         "11",
         "12"
-     ]
+      ]
     }
   ],
-  "data_provider": "hiera"
+  "requirements": [
+    {
+      "name": "puppet",
+      "version_requirement": ">= 4.7.0 < 7.0.0"
+    }
+  ],
+  "tags": [
+    "management",
+    "monitoring",
+    "process",
+    "baseline",
+    "change control"
+  ],
+  "pdk-version": "1.7.1",
+  "template-url": "file:///opt/puppetlabs/pdk/share/cache/pdk-templates.git",
+  "template-ref": "1.7.1-0-g810b982"
 }
-
