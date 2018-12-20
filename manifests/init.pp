@@ -1,6 +1,7 @@
 # installs scripts to help with the admin/consumption of Puppet
 class utility_scripts (
   # Class parameters are populated from External(hiera)/Defaults/Fail
+  Boolean $install                                     = false,
 
   # Generic variables
   String $puppet_service                                              = 'pe-puppetserver',
@@ -32,6 +33,8 @@ class utility_scripts (
   String $puppet_promote_config_path                                  = '',
 
 ) {
+
+  if $install {
 
   # Config file for API access to the Puppet Master
   file { 'api_access_config_path':
@@ -134,6 +137,7 @@ class utility_scripts (
                       } ),
     }
 
+  }
   }
 
 }
