@@ -1,0 +1,98 @@
+#!/usr/bin/env perl
+
+# This script is a CLI to provide PuppetDB data
+#
+# Author: Matthew Mallard
+# Website: www.q-technologies.com.au
+# Date: 26th October 2017
+
+use strict;
+use 5.10.0;
+use YAML::XS qw(Dump Load LoadFile);
+use Data::Dumper;
+use String::CamelCase qw( camelize );
+use Puppet::Classify;
+use Puppet::DB;
+use Getopt::Std;
+#use Term::ANSIColor;
+use Log::MixedColor;
+use JSON; # imports encode_json, decode_json, to_json and from_json
+
+my $log = Log::MixedColor->new;
+my $config = LoadFile( "<%= $api_access_config_path %>" );
+
+# Command line argument processing
+our( $opt_a, $opt_h, $opt_v, $opt_d, $opt_f );
+getopts('a:g:hvdf');
+
+# Constants
+use constant DEBUG_MSG => "debug";
+use constant ERROR_MSG => "error";
+
+# Globals
+my $json = JSON->new->allow_nonref;
+
+# Create a Puppet classification object
+my $puppet_db = Puppet::DB->new($config->{puppetdb_host});
+
+# Preliminary input checks
+my @actions = qw(all_by_hostname certname_from_hostname list_nodes is_hostname_in_puppetdb);
+my $action_re = join("|", @actions);
+if( $opt_h ){
+    say STDERR "$0 [-v] [-d] -a $action_re";
+    exit 1;
+}
+$action_re = qr/$action_re/;
+$log->fatal_err( "You need to specify the script action: -a ".join(" | ", @actions ) ) if not $opt_a =~ $action_re;
+
+# Mainline
+
+$puppet_db->refresh_facts;
+if( $opt_a eq 'certname_from_hostname' ){
+    my $hostname = $ARGV[0];
+    if( ! $hostname ){
+        say STDERR "Please specify the hostname of the system to lookup.";
+        exit 1;
+    }
+    my $fact = $puppet_db->get_fact_by_short_hostname('trusted',$hostname);
+    if( $fact and $fact->{certname} ){
+        say $fact->{certname};
+    } else {
+        say STDERR "$hostname was not found";
+        exit 1;
+    }
+} elsif( $opt_a eq 'all_by_hostname' ){
+    my $hostname = $ARGV[0];
+    if( ! $hostname ){
+        say STDERR "Please specify the hostname of the system to lookup.";
+        exit 1;
+    }
+    my $facts = $puppet_db->allfacts_by_hostname;
+    if( $facts and $facts->{$hostname} ){
+        say $json->pretty->encode( $facts->{$hostname} );
+    } else {
+        say STDERR "$hostname was not found";
+        exit 1;
+    }
+} elsif( $opt_a eq 'is_hostname_in_puppetdb' ){
+    my $hostname = $ARGV[0];
+    if( ! $hostname ){
+        say STDERR "Please specify the hostname of the system to lookup.";
+        exit 1;
+    }
+    my $found = $puppet_db->is_hostname_in_puppetdb( $hostname ) ? JSON::true : JSON::false;
+    say $json->pretty->encode( { hostname_is_in_puppetdb => $found } );
+} elsif( $opt_a eq 'list_nodes' ){
+    my $facts = $puppet_db->allfacts_by_certname;
+    if( $facts and keys %{$facts} ){
+        say join( "\n", keys %{$facts} );
+    } else {
+        say STDERR "There was an error retrieving facts";
+        exit 1;
+    }
+} else {
+    say STDERR "Action: $opt_a is not implemented!";
+    exit 1;
+}
+
+

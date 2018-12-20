@@ -1,49 +1,102 @@
-# maintains local scripts on the Puppet master
-class master_utilities (
+# installs scripts to help with the admin/consumption of Puppet
+class utility_scripts (
   # Class parameters are populated from External(hiera)/Defaults/Fail
-  Collection $required_paths             = [],
 
-  # Whether to actually install anything
-  Boolean $perl_mods_install             = true,
-  String $perl_mods_path                 = '/usr/local/lib/perl5',
-  String $scripts_path                   = '/usr/local/sbin',
-  Boolean $baseline_selection_install    = true,
-  Boolean $puppet_promote_install        = true,
+  # Generic variables
+  String $puppet_service                                              = 'pe-puppetserver',
+
+  # Manage custom oid mappings
+  Data $oid_mapping                                                   = {},
+
+  # Auto-signing
+  String $autosign_script_path                                        = "${::settings::confdir}/autosign.pl",
+  Data   $autosign_config                                             = {},
+  String $autosign_logic,
+
+  # Perl config
+  String $perl_path                                                   = '/usr/bin/perl',
+  Boolean $perl_mods_install                                          = true,
+  String $perl_mods_path                                              = '/usr/local/lib/perl5',
+
+  # API access
+  String $api_access_config_path                                      = '/usr/local/etc/puppet_api_access.yaml',
+  Data $api_access_config                                             = {},
+
+  # Backup dumpfile location
+  String $backup_destination_path                                     = '/var/backup/puppetlabs',
+
+  # Script locations
+  String $scripts_path                                                = '/usr/local/sbin',
+  String $dump_classifier_path                                        = '/usr/local/bin/dump_classifier.pl',
+  String $backup_master_to_fs                                        = '/usr/local/bin/backup_puppet_master_db.sh',
+  String $puppet_db_script_path                                       = '/usr/local/bin/puppet_db.pl',
 
   # Get the script paths for Perl scripts
-  String $baseline_selection_script_path = '',
-  String $baseline_selection_config_path = '',
-
-  # Get the script paths for Perl scripts
-  String $puppet_promote_script_path     = '',
-  String $puppet_promote_config_path     = '',
+  Boolean $puppet_promote_install                                     = true,
+  String $puppet_promote_script_path                                  = '',
+  String $puppet_promote_config_path                                  = '',
 
 ) {
+
+  # Config file for API access to the Puppet Master
+  file { 'api_access_config_path':
+    ensure  => file,
+    path    => $api_access_config_path,
+    owner   => 'root',
+    group   => 'root',
+    mode    => '0640',
+    content => inline_template('<%= @api_access_config.to_yaml %>'),
+  }
+
+  ################################################################################
+  #    ____             _
+  #   | __ )  __ _  ___| | ___   _ _ __
+  #   |  _ \ / _` |/ __| |/ / | | | '_ \
+  #   | |_) | (_| | (__|   <| |_| | |_) |
+  #   |____/ \__,_|\___|_|\_\\__,_| .__/
+  #                               |_|
+  ################################################################################
+  
+  file { $dump_classifier_path:
+    ensure  => file,
+    owner   => 'root',
+    group   => 'root',
+    mode    => '0750',
+    content => epp('utility_scripts/backup/dump_classifier.pl.epp', { api_access_config_path =>  $api_access_config_path }),
+  }
+
+  file { $backup_master_to_fs:
+    ensure  => file,
+    owner   => 'root',
+    group   => 'root',
+    mode    => '0750',
+    content => epp('utility_scripts/backup/backup.sh.epp', { destination_path => $backup_destination_path }),
+  }
+
+  ################################################################################
+  #    _   _ _   _ _ _ _   _
+  #   | | | | |_(_) (_) |_(_) ___  ___
+  #   | | | | __| | | | __| |/ _ \/ __|
+  #   | |_| | |_| | | | |_| |  __/\__ \
+  #    \___/ \__|_|_|_|\__|_|\___||___/
+  # 
+  ################################################################################
+
   # Location to install the script configuration files - this is hardcoded in the scripts so cannot be overridden
   $scripts_config_path = '/usr/local/etc'
 
   # Need to make sure the parameters have decent defaults and the correct hiera is being sourced
   # We need to exit this class cleanly when data not set, but notify the admin something is not right
   if ( empty(puppet_perl_config) and $perl_mods_install ) or 
-     ( empty(baseline_selection_config) and $baseline_selection_install ) or
      ( empty(puppet_promote_config) and $puppet_promote_install )
      {
     notify { 'Data not set correctly!  Make sure the hiera data is populated': 
     }
   } else {
 
-    # Make sure all the parent directories exist for the files we are managing in this modules
-    file { $required_paths:
-      ensure => directory,
-      owner  => 'root',
-      group  => 'root',
-      mode   => '0755',
-    }
-
-    # Populate using hiera_hash command as we want to merge data from multiple hiera configs
-    $puppet_perl_config        = hiera_hash('master_utilities::puppet_perl_config', {})
-    $baseline_selection_config = hiera_hash('master_utilities::baseline_selection_config', {})
-    $puppet_promote_config     = hiera_hash('master_utilities::puppet_promote_config', {})
+    # Populate using deep lookup command as we want to merge data from multiple hiera configs
+    $puppet_perl_config        = lookup('utility_scripts::puppet_perl_config', Data, deep, {})
+    $puppet_promote_config     = lookup('utility_scripts::puppet_promote_config', Data, deep, {})
 
     # Config file for Puppet promote code script
     file { 'puppet_promote_config':
@@ -52,46 +105,34 @@ class master_utilities (
       owner   => 'root',
       group   => 'root',
       mode    => '0640',
-      content => epp('master_utilities/puppet_promote_code_settings.epp', { config => $puppet_promote_config } ),
+      content => epp('utility_scripts/promote_code/puppet_promote_code_settings.epp', { config => $puppet_promote_config } ),
     }
 
-    # Config file for Baseline Selection script
-    $configs = [ 'baseline_selection_config', 'puppet_perl_config' ];
-    $configs.each | $config | {
-      file { "master util config: ${config}":
-        ensure  => file,
-        path    => "${scripts_config_path}/${config}.json",
-        owner   => 'root',
-        group   => 'root',
-        mode    => '0640',
-        content => inline_template("<%= @${config}.to_json %>"),
-      }
+    file { 'puppet_promote_code.sh':
+      ensure  => file,
+      path    => "${scripts_path}/puppet_promote_code.sh",
+      owner   => 'root',
+      group   => 'root',
+      mode    => '0750',
+      content => epp('utility_scripts/promote_code/puppet_promote_code.sh.epp', { config_path => "${scripts_config_path}/puppet_promote_code_settings" } ),
     }
 
-    # install included scripts
-    $scripts = [ 'puppet_baseline_selection.pl', 'puppet_list_nodes.pl', 'puppet_promote_code.sh' ];
-    $scripts.each | $script | {
-      file { "master util script: ${script}":
-        ensure  => file,
-        path    => "${scripts_path}/${script}",
-        owner   => 'root',
-        group   => 'root',
-        mode    => '0750',
-        source  => "puppet:///modules/master_utilities/${script}"
-      }
+    file { 'puppet_perl_config':
+      ensure  => file,
+      path    => "${scripts_config_path}/puppet_perl_config_settings.yaml",
+      owner   => 'root',
+      group   => 'root',
+      mode    => '0640',
+      content  => inline_template("<%= @puppet_perl_config.to_yaml %>"),
     }
 
-    # install included Perl Modules
-    $perl_mods = [ 'Puppet/DB.pm', 'Puppet/Classify.pm', 'Puppet/Cert.pm', 'String/ShortHostname.pm', 'Log/MixedColor.pm' ];
-    $perl_mods.each | $perl_mod | {
-      file { "master util perl module: ${perl_mod}":
-        ensure  => file,
-        path    => "${perl_mods_path}/${perl_mod}",
-        owner   => 'root',
-        group   => 'root',
-        mode    => '0644',
-        content => file("master_utilities/${perl_mod}"),
-      }
+    file { 'puppet_list_nodes.pl':
+      ensure  => file,
+      path    => "${scripts_path}/puppet_list_nodes.pl",
+      owner   => 'root',
+      group   => 'root',
+      mode    => '0750',
+      content => epp('utility_scripts/puppet_list_nodes.pl.epp', { config_path => "${scripts_config_path}/puppet_perl_config_settings.yaml" } ),
     }
 
   }

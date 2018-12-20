@@ -1,13 +1,13 @@
 {
-  "name": "qtechnologies/master_utilities",
+  "name": "qtechnologies/utility_scripts",
   "version": "1.0.0",
   "author": "Q-Technologies",
-  "summary": "Puppet module that provides some Puppet Master utility scripts",
+  "summary": "installs scripts to help with the admin/consumption of Puppet",
   "license": "Apache-2.0",
   "tags": ["management","monitoring","process","baseline","change control"],
-  "source": "https://github.com/Q-Technologies/puppet-master_utilities.git",
-  "project_page": "https://github.com/Q-Technologies/puppet-master_utilities",
-  "issues_url": "https://github.com/Q-Technologies/puppet-master_utilities/issues",
+  "source": "https://github.com/Q-Technologies/puppet-utility_scripts.git",
+  "project_page": "https://github.com/Q-Technologies/puppet-utility_scripts",
+  "issues_url": "https://github.com/Q-Technologies/puppet-utility_scripts/issues",
   "dependencies": [],
   "operatingsystem_support": [
     {

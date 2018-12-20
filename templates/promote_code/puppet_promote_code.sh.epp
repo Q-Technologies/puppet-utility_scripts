@@ -17,7 +17,7 @@ change_no=$1
 src_branch=$2
 dst_branch=$3
 
-config=/usr/local/etc/puppet_promote_code_settings
+config=<%= $config_path %>
 if [[ -r ${config:?} ]]; then
     . ${config:?}
 elif [[ -r $(basename ${config:?}) ]]; then

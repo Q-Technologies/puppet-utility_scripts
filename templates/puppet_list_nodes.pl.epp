@@ -1,6 +1,6 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
-# This script is for list nodes in Puppet groups that control
+# This script is for listing nodes in Puppet
 # 
 # It makes the following assumptions:
 #   * The parent group is 'All Nodes' - do not change this group!
@@ -15,7 +15,7 @@ use JSON;
 use vars qw/$puppet_config/;
 BEGIN { 
   local $/;
-  open( my $fh, '<', "/usr/local/etc/puppet_perl_config.json" );
+  open( my $fh, '<', "<%= $config_path %>" );
   my $json_text   = <$fh>;
   $puppet_config = decode_json( $json_text )or die $!;    
 }

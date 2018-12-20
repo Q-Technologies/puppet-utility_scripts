@@ -1,0 +1,31 @@
+#!/bin/bash
+
+# Script to dump the Puppet master database to disk
+
+backup_path=<%= $destination_path %>
+
+if [ -t 0 ]; then
+    echo "Backing up the Postgres database"
+fi
+
+pg_bak_dir=${backup_path:?}/postgres
+mkdir -p ${pg_bak_dir:?}
+chown pe-postgres:pe-postgres ${pg_bak_dir:?}
+cd ${pg_bak_dir:?}
+sudo -u pe-postgres /opt/puppetlabs/server/bin/pg_dump -Fc pe-activity -f ${pg_bak_dir:?}/pe-activity_`date +%Y-%m-%d_%H:%M`.bin
+sudo -u pe-postgres /opt/puppetlabs/server/bin/pg_dump -Fc pe-rbac -f ${pg_bak_dir:?}/pe-rbac_`date +%Y-%m-%d_%H:%M`.bin
+sudo -u pe-postgres /opt/puppetlabs/server/bin/pg_dump -Fc pe-classifier -f ${pg_bak_dir:?}/pe-classifier_`date +%Y-%m-%d_%H:%M`.bin
+sudo -u pe-postgres /opt/puppetlabs/server/bin/pg_dump -Fc pe-puppetdb -f ${pg_bak_dir:?}/pe-puppetdb_`date +%Y-%m-%d_%H:%M`.bin
+sudo -u pe-postgres /opt/puppetlabs/server/bin/pg_dump -Fc pe-orchestrator -f ${pg_bak_dir:?}/pe-orchestrator_`date +%Y-%m-%d_%H:%M`.bin
+find ${pg_bak_dir:?} -mtime +2 -delete
+
+if [ -t 0 ]; then
+    echo "Backing up Node Classifier data"
+fi
+
+nc_bak_dir=${backup_path:?}/node_classifier
+mkdir -p ${nc_bak_dir:?}
+PERLBREW_ROOT=/opt/perlbrew
+. $PERLBREW_ROOT/etc/bashrc
+/usr/local/bin/dump_classifier.pl -a dump | gzip -c > ${nc_bak_dir:?}/$(date +%Y-%m-%d_%H:%M).gz
+find ${nc_bak_dir:?} -mtime +30 -delete

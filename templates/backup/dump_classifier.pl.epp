@@ -1,0 +1,148 @@
+#!/usr/bin/env perl
+
+# This script is for backup up the node classifier data
+#
+# Author: Matthew Mallard
+# Website: www.q-technologies.com.au
+# Date: 26th October 2017
+
+use strict;
+use 5.10.0;
+use YAML::XS qw(Dump Load LoadFile);
+use Data::Dumper;
+use String::CamelCase qw( camelize );
+use Puppet::Classify;
+use Puppet::DB;
+use Getopt::Std;
+#use Term::ANSIColor;
+use Log::MixedColor;
+use JSON; # imports encode_json, decode_json, to_json and from_json
+
+my $log = Log::MixedColor->new;
+my $config = LoadFile( "<%= $api_access_config_path %>" );
+
+# Command line argument processing
+our( $opt_a, $opt_g, $opt_h, $opt_v, $opt_d, $opt_f );
+getopts('a:g:hvdf');
+
+# Constants
+use constant DEBUG_MSG => "debug";
+use constant ERROR_MSG => "error";
+
+# Globals
+my $top_parent_id;
+my $top_parent = "All Nodes";
+my $hierarchy = {};
+my $groups_by_id = {};
+my $json = JSON->new->allow_nonref;
+
+# Create a Puppet classification object
+#my $classify = Puppet::Classify->new( $config->{puppet_classify_host} );
+my $classify = Puppet::Classify->new( 
+                                      server_name     => $config->{puppet_classify_host},
+                                      cert_name       => $config->{puppet_classify_cert},
+                                      puppet_db       => Puppet::DB->new($config->{puppetdb_host}),
+                                      puppet_ssl_path => $config->{puppet_ssl_path},
+                                    );
+
+# Preliminary input checks
+if( $opt_h ){
+    say "$0 [-v] [-d] -a load|dump [filename]";
+    exit;
+}
+my @actions = qw(load dump );
+my $action_re = join("|", @actions);
+$action_re = qr/$action_re/;
+$log->fatal_err( "You need to specify the script action: -a ".join(" | ", @actions ) ) if not $opt_a =~ $action_re;
+
+# Mainline
+
+if( $opt_a eq 'dump' ){
+    my $groups = $classify->get_groups();
+    my $dump = $json->pretty->encode( $groups );
+    if( $ARGV[0] ){
+        say "Dumping classifier to ".$ARGV[0] if $opt_v or $opt_d;
+        open DUMP, ">".$ARGV[0] or die $!;
+        print DUMP $dump;
+        close DUMP;
+    } else {
+        say $dump;
+    }
+} elsif( $opt_a eq 'load' ){
+    if( ! $ARGV[0] ){
+        say "Please specify the filename of the dump to load as the script argument.";
+        exit 1;
+    }
+    my $dump;
+    open DUMP, "<$ARGV[0]" or die $!;
+    while( <DUMP> ){
+        $dump .= $_;
+    }
+    close DUMP;
+    my $groups = decode_json( $dump ) or die $!;
+    my $dump_is_good = 0;
+    for my $group ( @{ $groups } ){
+        if( $group->{name} eq $top_parent ){
+            $top_parent_id = $group->{id};
+            $dump_is_good = 1;
+            next;
+        }
+        push @{ $hierarchy->{$group->{parent}} }, $group->{id};
+        $groups_by_id->{$group->{id}} = $group;
+    }
+    if( not $dump_is_good ){
+        say "The dump doesn't look right - exiting";
+        exit 1;
+    }
+
+    say "Removing Existing groups" if $opt_v or $opt_d;
+    my $parent_w_children = $classify->get_group_with_children( $top_parent_id );
+    for my $child ( @{ $parent_w_children->[0]{children} } ){
+        my $id = $child->{id};
+        remove_group_and_children( $id );
+    }
+
+    say "Adding in groups from dump" if $opt_v or $opt_d;
+    add_child_groups( $top_parent_id );
+} else {
+    say "Action: $opt_a is not implemented!";
+    exit 1;
+}
+
+sub add_child_groups {
+    my $old_parent_id = shift;
+    my $new_parent_id = shift;
+    $new_parent_id = $old_parent_id if ! $new_parent_id;
+    
+    for my $group_id ( @{ $hierarchy->{$old_parent_id} } ){
+        my $group = $groups_by_id->{$group_id};
+        say "Adding ".$group->{name} if $opt_v or $opt_d;
+        my $old_id = $group->{id};
+        $group->{parent} = $new_parent_id;
+        if( $group->{deleted} ){
+            my @deleted =  keys %{ $group->{deleted} };
+            for my $class ( @deleted ){
+                delete $group->{classes}{$class}; 
+                say "Warning: the '$class' class had to be removed from '".$group->{name}."' as it was not present when classifier was dumped.";
+            }
+            delete $group->{deleted}; 
+        }
+        $classify->create_group( $group );
+        if( $hierarchy->{$old_id} ){
+            add_child_groups( $old_id, $classify->get_group_id( $group->{name} ) );
+        }
+    }
+}
+
+sub remove_group_and_children {
+    my $gid = shift;
+    my $group_with_children;
+    # this step will die if no children exist
+    eval { $group_with_children = $classify->get_group_with_children( $gid ) };
+    my $children = $group_with_children->[0]{children};
+    for my $child ( @{ $children } ){
+        my $id = $child->{id};
+        remove_group_and_children( $id );
+    }
+    $classify->delete_group( $gid );
+}
