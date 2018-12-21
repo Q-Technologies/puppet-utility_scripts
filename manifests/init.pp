@@ -1,49 +1,76 @@
 # installs scripts to help with the admin/consumption of Puppet
 class utility_scripts (
   # Class parameters are populated from External(hiera)/Defaults/Fail
-  Boolean $install                                     = false,
 
-  # Generic variables
-  String $puppet_service                                              = 'pe-puppetserver',
+  # Scripts path prefix
+  String $scripts_path_prefix,
 
-  # Manage custom oid mappings
-  Data $oid_mapping                                                   = {},
+  # Create any intermediate directory paths
+  Collection $required_paths,
 
   # Perl config
-  String $perl_path                                                   = '/usr/bin/perl',
-  Boolean $perl_mods_install                                          = true,
-  String $perl_mods_path                                              = '/usr/local/lib/perl5',
+  String $perl_path,
+  String $perl_lib_path,
 
-  # API access
-  String $api_access_config_path                                      = '/usr/local/etc/puppet_api_access.yaml',
-  Data $api_access_config                                             = {},
+  # Inventory scripts
+  Boolean $inventory_scripts_install,
 
   # Backup dumpfile location
-  String $backup_destination_path                                     = '/var/backup/puppetlabs',
+  Boolean $master_backup_scripts_install,
+  String $backup_destination_path,
+
+  # Classifier
+  String $puppet_classify_environment,
+  String $roles_parent_group,
+
+  # Script configs
+  String $scripts_config_path              = "${scripts_path_prefix}/etc",
 
   # Script locations
-  String $scripts_path                                                = '/usr/local/sbin',
-  String $dump_classifier_path                                        = '/usr/local/bin/dump_classifier.pl',
-  String $backup_master_to_fs                                        = '/usr/local/bin/backup_puppet_master_db.sh',
-  String $puppet_db_script_path                                       = '/usr/local/bin/puppet_db.pl',
+  String $dump_classifier_path             = "${scripts_path_prefix}/sbin/dump_classifier",
+  String $backup_master_to_fs              = "${scripts_path_prefix}/sbin/backup_puppet_master_db.sh",
+  String $puppet_db_script_path            = "${scripts_path_prefix}/bin/puppet_db",
+  String $puppet_list_nodes_script_path    = "${scripts_path_prefix}/sbin/puppet_list_nodes",
+  String $puppet_rundeck_lists_script_path = "${scripts_path_prefix}/sbin/puppet_rundeck_lists",
+  String $node_maint_script_path           = "${scripts_path_prefix}/sbin/puppet_node_maintenance",
+  String $role_maint_script_path           = "${scripts_path_prefix}/sbin/puppet_role_maintenance",
 
   # Get the script paths for Perl scripts
-  Boolean $puppet_promote_install                                     = true,
-  String $puppet_promote_script_path                                  = '',
-  String $puppet_promote_config_path                                  = '',
+  String $puppet_promote_script_path       = "${scripts_path_prefix}/bin/puppet_promote_code.sh",
+  String $puppet_promote_config_path       = "${scripts_config_path}/puppet_promote_code_settings",
+
+  # API access
+  String $api_access_config_path           = "${scripts_config_path}/puppet_api_access.yaml",
+  Data $api_access_config                  = {},
+
+  # CMDB inventory collection
+  String $send_cmdb_data_path = "${scripts_path_prefix}/sbin/puppet_send_cmdb_data",
+  Data $cmdb_import_mappings = {},
+  Collection $cmdb_email_to = '',
 
 ) {
 
-  if $install {
+
+  # Populate using deep lookup command as we want to merge data from multiple hiera configs
+  $puppet_perl_config        = lookup('utility_scripts::puppet_perl_config', Data, deep, {})
+  $puppet_promote_config     = lookup('utility_scripts::puppet_promote_config', Data, deep, {})
+
+  file { $required_paths:
+    ensure => directory,
+    owner  => $::settings::user,
+    group  => $::settings::user,
+    mode   => '0775',
+  }
 
   # Config file for API access to the Puppet Master
-  file { 'api_access_config_path':
-    ensure  => file,
-    path    => $api_access_config_path,
-    owner   => 'root',
-    group   => 'root',
-    mode    => '0640',
-    content => inline_template('<%= @api_access_config.to_yaml %>'),
+  if !empty( $api_access_config ){
+    file { $api_access_config_path:
+      ensure  => file,
+      owner   => 'root',
+      group   => 'root',
+      mode    => '0640',
+      content => inline_template('<%= @api_access_config.to_yaml %>'),
+    }
   }
 
   ################################################################################
@@ -55,20 +82,30 @@ class utility_scripts (
   #                               |_|
   ################################################################################
 
-  file { $dump_classifier_path:
-    ensure  => file,
-    owner   => 'root',
-    group   => 'root',
-    mode    => '0750',
-    content => epp('utility_scripts/backup/dump_classifier.pl.epp', { api_access_config_path =>  $api_access_config_path }),
-  }
+  if $master_backup_scripts_install {
+    file { $dump_classifier_path:
+      ensure  => file,
+      owner   => 'root',
+      group   => 'root',
+      mode    => '0750',
+      content => epp('utility_scripts/backup/dump_classifier.pl.epp', {
+        api_access_config_path => $api_access_config_path,
+        perl_path              => $perl_path,
+        perl_lib_path          => $perl_lib_path,
+        }
+      ),
+    }
 
-  file { $backup_master_to_fs:
-    ensure  => file,
-    owner   => 'root',
-    group   => 'root',
-    mode    => '0750',
-    content => epp('utility_scripts/backup/backup.sh.epp', { destination_path => $backup_destination_path }),
+    file { $backup_master_to_fs:
+      ensure  => file,
+      owner   => 'root',
+      group   => 'root',
+      mode    => '0750',
+      content => epp('utility_scripts/backup/backup.sh.epp', {
+        destination_path => $backup_destination_path,
+        }
+      ),
+    }
   }
 
   ################################################################################
@@ -80,64 +117,111 @@ class utility_scripts (
   # 
   ################################################################################
 
-  # Location to install the script configuration files - this is hardcoded in the scripts so cannot be overridden
-  $scripts_config_path = '/usr/local/etc'
-
-  # Need to make sure the parameters have decent defaults and the correct hiera is being sourced
-  # We need to exit this class cleanly when data not set, but notify the admin something is not right
-  if ( empty(puppet_perl_config) and $perl_mods_install ) or
-    ( empty(puppet_promote_config) and $puppet_promote_install )
-    {
-    notify { 'Data not set correctly!  Make sure the hiera data is populated':
-    }
-  } else {
-
-    # Populate using deep lookup command as we want to merge data from multiple hiera configs
-    $puppet_perl_config        = lookup('utility_scripts::puppet_perl_config', Data, deep, {})
-    $puppet_promote_config     = lookup('utility_scripts::puppet_promote_config', Data, deep, {})
+  # Let's assume we want to install the scripts if the config is found in hiera
+  if !empty($puppet_promote_config) {
 
     # Config file for Puppet promote code script
-    file { 'puppet_promote_config':
+    file { $puppet_promote_config_path:
       ensure  => file,
-      path    => "${scripts_config_path}/puppet_promote_code_settings",
       owner   => 'root',
       group   => 'root',
       mode    => '0640',
-      content => epp('utility_scripts/promote_code/puppet_promote_code_settings.epp', { config => $puppet_promote_config } ),
+      content => epp('utility_scripts/promote_code/puppet_promote_code_settings.epp', {
+        config => $puppet_promote_config,
+        }
+      ),
     }
 
-    file { 'puppet_promote_code.sh':
+    file { $puppet_promote_script_path:
       ensure  => file,
-      path    => "${scripts_path}/puppet_promote_code.sh",
       owner   => 'root',
       group   => 'root',
       mode    => '0750',
       content => epp( 'utility_scripts/promote_code/puppet_promote_code.sh.epp', {
-                        config_path => "${scripts_config_path}/puppet_promote_code_settings",
-                      } ),
+        config_path => $puppet_promote_config_path,
+        }
+      ),
     }
+  }
 
-    file { 'puppet_perl_config':
+  # Let's assume we want to install the scripts if the config is found in hiera
+  if $inventory_scripts_install {
+    file { "${scripts_config_path}/puppet_perl_config_settings.yaml":
       ensure  => file,
-      path    => "${scripts_config_path}/puppet_perl_config_settings.yaml",
       owner   => 'root',
       group   => 'root',
-      mode    => '0640',
+      mode    => '0644',
       content => inline_template('<%= @puppet_perl_config.to_yaml %>'),
     }
 
-    file { 'puppet_list_nodes.pl':
+    file { $puppet_list_nodes_script_path:
       ensure  => file,
-      path    => "${scripts_path}/puppet_list_nodes.pl",
       owner   => 'root',
       group   => 'root',
       mode    => '0750',
       content => epp( 'utility_scripts/puppet_list_nodes.pl.epp', {
-                      config_path => "${scripts_config_path}/puppet_perl_config_settings.yaml",
-                      } ),
+        api_access_config_path => $api_access_config_path,
+        perl_path              => $perl_path,
+        perl_lib_path          => $perl_lib_path,
+        }
+      ),
     }
 
-  }
+    file { $puppet_db_script_path:
+      ensure  => file,
+      owner   => 'root',
+      group   => 'root',
+      mode    => '0755',
+      content => epp( 'utility_scripts/puppet_db.pl.epp', {
+        api_access_config_path => $api_access_config_path,
+        perl_path              => $perl_path,
+        perl_lib_path          => $perl_lib_path,
+        }
+      ),
+    }
+
+    # Role Maintenance script
+    file { $role_maint_script_path:
+      ensure  => file,
+      owner   => $::settings::user,
+      group   => $::settings::group,
+      mode    => '0750',
+      content => epp('puppet_master/role_maintenance.pl.epp', {
+        api_access_config_path      => $api_access_config_path,
+        puppet_classify_environment => $puppet_classify_environment,
+        roles_parent_group          => $roles_parent_group,
+        perl_path                   => $perl_path,
+        perl_lib_path               => $perl_lib_path,
+      }),
+    }
+
+    # Puppet server to rundeck host list script
+    file { $puppet_rundeck_lists_script_path:
+      ensure  => file,
+      owner   => $::settings::user,
+      group   => $::settings::group,
+      mode    => '0750',
+      content => epp('puppet_master/puppet_rundeck_lists.pl.epp', {
+        api_access_config_path => $api_access_config_path,
+        perl_path              => $perl_path,
+        perl_lib_path          => $perl_lib_path,
+      }),
+    }
+
+    # ServiceNow inventory collection
+    file { $send_cmdb_data_path:
+      ensure  => file,
+      mode    => '0755',
+      content => epp('puppet_master/send_cmdb_data.pl.epp', {
+        api_access_config_path => $api_access_config_path,
+        cmdb_import_mappings   => $cmdb_import_mappings,
+        cmdb_email_to          => $cmdb_email_to,
+        perl_path              => $perl_path,
+        perl_lib_path          => $perl_lib_path,
+      }),
+    }
+
+
   }
 
 }

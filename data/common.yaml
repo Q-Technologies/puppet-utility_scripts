@@ -1,2 +1,22 @@
 ---
+utility_scripts::roles_parent_group: All Nodes
+utility_scripts::puppet_classify_environment: production
+utility_scripts::puppet_lists_script_path: /usr/local/sbin/puppet_lists
+utility_scripts::perl_path: '/usr/bin/env perl'
+utility_scripts::perl_lib_path: ''
+utility_scripts::master_backup_scripts_install: false
+utility_scripts::inventory_scripts_install: false
+utility_scripts::scripts_path_prefix: '/usr/local'
+utility_scripts::backup_destination_path: '/var/backup/puppetlabs'
+utility_scripts::required_paths_default: []
+
+# Puppet DB connection settings
+utility_scripts::api_access_config_default:
+  puppetdb_host: localhost
+  puppetdb_port: 8080
+  puppet_classify_host: localhost
+  puppet_classify_port: 4433
+  puppet_classify_cert: api_access
+
+
 

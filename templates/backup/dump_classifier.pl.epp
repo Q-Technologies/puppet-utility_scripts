@@ -1,4 +1,4 @@
-#!/usr/bin/env perl
+#!<%= $perl_path %>
 
 # This script is for backup up the node classifier data
 #
@@ -8,6 +8,9 @@
 
 use strict;
 use 5.10.0;
+<% if $perl_lib_path { %>
+use lib '<%= $perl_lib_path %>';
+<% } %>
 use YAML::XS qw(Dump Load LoadFile);
 use Data::Dumper;
 use String::CamelCase qw( camelize );
@@ -39,11 +42,14 @@ my $json = JSON->new->allow_nonref;
 # Create a Puppet classification object
 #my $classify = Puppet::Classify->new( $config->{puppet_classify_host} );
 my $classify = Puppet::Classify->new( 
-                                      server_name     => $config->{puppet_classify_host},
-                                      cert_name       => $config->{puppet_classify_cert},
-                                      puppet_db       => Puppet::DB->new($config->{puppetdb_host}),
-                                      puppet_ssl_path => $config->{puppet_ssl_path},
-                                    );
+                  server_name     => $config->{puppet_classify_host},
+                  cert_name       => $config->{puppet_classify_cert},
+                  puppet_db       => Puppet::DB->newPuppet::DB->new(
+                                        server_name => $config->{puppetdb_host},
+                                        server_port => $config->{puppetdb_host},
+                                     ),
+                  puppet_ssl_path => $config->{puppet_ssl_path},
+                );
 
 # Preliminary input checks
 if( $opt_h ){

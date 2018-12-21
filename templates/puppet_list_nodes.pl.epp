@@ -1,4 +1,4 @@
-#!/usr/bin/env perl
+#!<%= $perl_path %>
 
 # This script is for listing nodes in Puppet
 # 
@@ -11,17 +11,12 @@
 
 use strict;
 use 5.10.0;
-use JSON;
-use vars qw/$puppet_config/;
-BEGIN { 
-  local $/;
-  open( my $fh, '<', "<%= $config_path %>" );
-  my $json_text   = <$fh>;
-  $puppet_config = decode_json( $json_text )or die $!;    
-}
-use lib @{$puppet_config->{locallibs}};
+<% if $perl_lib_path { %>
+use lib '<%= $perl_lib_path %>';
+<% } %>
 use Data::Dumper;
 use String::CamelCase qw( camelize );
+use YAML::XS qw(Dump Load LoadFile);
 use Puppet::Classify;
 use Puppet::DB;
 use Getopt::Std;
@@ -34,6 +29,7 @@ $Getopt::Std::STANDARD_HELP_VERSION = 1;
 
 # Set up logging
 my $log = Log::MixedColor->new( verbose => $opt_v, debug => $opt_d );
+my $config = LoadFile( "<%= $api_access_config_path %>" );
 
 # Globals
 my $nodes;
@@ -42,15 +38,15 @@ my $parent = "All Nodes";
 my @actions = qw(all in_group match_fact match_name );
 
 my $classify = Puppet::Classify->new( 
-                                      cert_name   => $puppet_config->{puppet_classify_cert},
-                                      api_server  => $puppet_config->{puppet_classify_host},
-                                      api_port    => $puppet_config->{puppet_classify_port},
-                                    );
+                  cert_name   => $config->{puppet_classify_cert},
+                  api_server  => $config->{puppet_classify_host},
+                  api_port    => $config->{puppet_classify_port},
+                );
 
 my $puppetdb = Puppet::DB->new(       
-                                      server_name => $puppet_config->{puppetdb_host},
-                                      server_port => $puppet_config->{puppetdb_port},
-                                    );
+                  server_name => $config->{puppetdb_host},
+                  server_port => $config->{puppetdb_port},
+                );
 $puppetdb->refresh("nodes", {});
 my $puppetdb_nodes = $puppetdb->results;
 
