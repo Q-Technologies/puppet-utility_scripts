@@ -14,6 +14,7 @@ class utility_scripts (
 
   # Inventory scripts
   Boolean $inventory_scripts_install,
+  Data $api_access_config_default,
 
   # Backup dumpfile location
   Boolean $master_backup_scripts_install,
@@ -41,7 +42,6 @@ class utility_scripts (
 
   # API access
   String $api_access_config_path           = "${scripts_config_path}/puppet_api_access.yaml",
-  Data $api_access_config                  = {},
 
   # CMDB inventory collection
   String $send_cmdb_data_path = "${scripts_path_prefix}/sbin/puppet_send_cmdb_data",
@@ -50,10 +50,10 @@ class utility_scripts (
 
 ) {
 
-
   # Populate using deep lookup command as we want to merge data from multiple hiera configs
-  $puppet_perl_config        = lookup('utility_scripts::puppet_perl_config', Data, deep, {})
   $puppet_promote_config     = lookup('utility_scripts::puppet_promote_config', Data, deep, {})
+  $api_access_config_hiera = lookup('utility_scripts::api_access_config', Data, deep, {})
+  $api_access_config = $api_access_config_default + $api_access_config_hiera
 
   file { $required_paths:
     ensure => directory,
@@ -146,12 +146,12 @@ class utility_scripts (
 
   # Let's assume we want to install the scripts if the config is found in hiera
   if $inventory_scripts_install {
-    file { "${scripts_config_path}/puppet_perl_config_settings.yaml":
+    file { $api_access_config_path:
       ensure  => file,
       owner   => 'root',
       group   => 'root',
       mode    => '0644',
-      content => inline_template('<%= @puppet_perl_config.to_yaml %>'),
+      content => inline_template('<%= @api_access_config.to_yaml %>'),
     }
 
     file { $puppet_list_nodes_script_path:
@@ -209,18 +209,19 @@ class utility_scripts (
     }
 
     # ServiceNow inventory collection
-    file { $send_cmdb_data_path:
-      ensure  => file,
-      mode    => '0755',
-      content => epp('puppet_master/send_cmdb_data.pl.epp', {
-        api_access_config_path => $api_access_config_path,
-        cmdb_import_mappings   => $cmdb_import_mappings,
-        cmdb_email_to          => $cmdb_email_to,
-        perl_path              => $perl_path,
-        perl_lib_path          => $perl_lib_path,
-      }),
+    if !empty( $cmdb_email_to ) {
+      file { $send_cmdb_data_path:
+        ensure  => file,
+        mode    => '0755',
+        content => epp('puppet_master/send_cmdb_data.pl.epp', {
+          api_access_config_path => $api_access_config_path,
+          cmdb_import_mappings   => $cmdb_import_mappings,
+          cmdb_email_to          => $cmdb_email_to,
+          perl_path              => $perl_path,
+          perl_lib_path          => $perl_lib_path,
+        }),
+      }
     }
-
 
   }
 
