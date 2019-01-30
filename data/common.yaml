@@ -1,5 +1,5 @@
 ---
-utility_scripts::roles_parent_group: All Nodes
+utility_scripts::roles_parent_group: Roles
 utility_scripts::puppet_classify_environment: production
 utility_scripts::puppet_lists_script_path: /usr/local/sbin/puppet_lists
 utility_scripts::perl_path: '/usr/bin/env perl'
