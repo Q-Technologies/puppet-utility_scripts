@@ -1,0 +1,129 @@
+#!<%= $perl_path %>
+
+# This script is for maintaining the node groups used to allocate the role classes.
+# Depending on the action it is invoked with, it will either find all the Roles classes in the
+# specified environment and create an equivalent group or it will delete all the role groups.
+#
+# It makes the following assumptions:
+#   * The parent group is 'Roles' - do not change this group!
+#   * all role classes begin with 'role::'
+#   * each node has a fact called 'trusted.extensions.pp_role' specifying it's role without the 'role::' prefix
+#
+#   Author M. Mallard 9 Feb 2016 - Updated October 2018 for new Puppet master
+#
+
+use strict;
+<% if $perl_lib_path { %>
+use lib '<%= $perl_lib_path %>';
+<% } %>
+use Data::Dumper;
+use String::CamelCase qw( camelize );
+use Puppet::Classify;
+use 5.10.0;
+
+my $config = LoadFile( "<%= $api_access_config_path %>" );
+
+# Globals
+my $puppet_db = Puppet::DB->new(
+    server_name => $config->{puppetdb_host},
+    server_port => $config->{puppetdb_host},
+);
+my $classify = Puppet::Classify->new(
+    cert_name   => $config->{puppet_classify_cert},
+    server_name => $config->{puppet_classify_host},
+    server_port => $config->{puppet_classify_port},
+    environment => '<%= $puppet_classify_environment %>',
+    puppet_db   => $puppet_db,
+);
+my $roles_parent_group = '<%= $roles_parent_group %>';
+my $action = $ARGV[0];
+my $parent_id;
+
+# Mainline
+my $groups = $classify->get_groups();
+my @role_groups;
+for my $group ( @$groups ){
+	push @role_groups, $group if $group->{name} =~ /^role::/i;
+	$parent_id = $group->{id} if $group->{name} eq "Roles";
+}
+
+if( $action eq "create_missing_role_groups" ){
+    create_role_groups();
+} elsif( $action eq "delete_role_groups" ){
+    delete_role_groups();
+} elsif( $action eq "update_classes" ){
+    say "Updating the class cache";
+    $classify->update_classes();
+} else {
+    say "Unknown action??";
+    exit 1;
+}
+
+
+sub create_role_groups {
+    if( not $parent_id ){
+        say "Could not find the parent ID (i.e. the top group)";
+        exit 1;
+    }
+
+    # Update classes - i.e. refresh the environment cache
+    say "Updating the class cache";
+    $classify->update_classes();
+
+    my @classes;
+    my @missing_classes;
+    my $classes = $classify->get_classes();
+    for my $class ( @$classes ){
+	    if( $class->{name} =~ /^role::/i ){
+	        push @classes, $class->{name};
+            my $found = 0;
+            for my $role_group ( @role_groups ){
+                my $role = $role_group->{name};
+                if( lc($role) eq lc(camelize($class->{name})) ){
+                    $found = 1;
+                    last;
+                }
+            }
+	        push @missing_classes, $class->{name} if not $found;
+        }
+    }
+    unless( @missing_classes ){
+        say "There are no missing role groups to be created";
+        return;
+    }
+
+    for my $class( @missing_classes ){
+        my $role = $class;
+        $role =~ s/role:://i;
+        my $rule = [
+                    'and',
+                    [
+                        '=',
+                        [
+                            'trusted',
+                            'extensions',
+                            'pp_role'
+                        ],
+                        $role
+                    ]
+                ];
+        my $group = { name => camelize( $class ),
+                    environment => $classify->environment,
+                    description => "Group to assign the $class class to nodes",
+                    parent => $parent_id,
+                    rule => $rule,
+                    classes => { $class => {} },
+                    };
+        say "Creating role group for ".$class;
+        $classify->create_group( $group );
+    }
+}
+
+sub delete_role_groups {
+    for my $role_group ( @role_groups ){
+        say "Deleteing ".$role_group->{name};
+        $classify->delete_group($role_group->{id}); 
+    }
+}
+
+

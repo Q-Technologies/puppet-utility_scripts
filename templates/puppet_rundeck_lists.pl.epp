@@ -1,0 +1,86 @@
+#!<%= $perl_path %>
+
+# This script is for creating lists from the puppet DB
+# Mostly for RunDeck
+#
+#   Author M. Mallard 17 May 2016
+#
+
+use strict;
+<% if $perl_lib_path { %>
+use lib '<%= $perl_lib_path %>';
+<% } %>
+use Data::Dumper;
+use String::CamelCase qw( camelize );
+use POSIX qw(strftime);
+use Puppet::DB;
+use Puppet::Classify;
+use YAML;
+use 5.10.0;
+
+# Globals
+my $config = LoadFile( "<%= $api_access_config_path %>" );
+
+my $puppet_db = Puppet::DB->new(
+    server_name => $config->{puppetdb_host},
+    server_port => $config->{puppetdb_host},
+);
+my $username = $ARGV[0];
+if( ! $username ){
+    say "You need to specify the username to use for SSH access as the argument";
+    exit;
+}
+my $group_name = $ARGV[1];
+$group_name = "All Nodes" unless $group_name;
+
+# Create a Puppet classification object
+my $classify = Puppet::Classify->new( 
+                                      server_name     => $config->{puppet_classify_host},
+                                      cert_name       => $config->{puppet_classify_cert},
+                                      puppet_db       => $puppet_db,
+                                      puppet_ssl_path => $config->{puppet_ssl_path},
+                                    );
+
+# Get the rule that defines all the nodes in the group
+my $rule = $classify->get_group_rule( $group_name );
+
+# Convert the rule from Classifier to PuppetDB format  
+$rule = $classify->convert_rule_for_puppetdb( $rule );
+
+# Refresh the PuppetDB object with the new rule
+$puppet_db->refresh( "nodes", $rule );
+my $data = $puppet_db->results;
+
+my $yaml;
+for my $node ( @$data ){
+    my $facts_timestamp = $puppet_db->parse_puppetdb_time( $node->{facts_timestamp} );
+    my $time_string = strftime "%a %b %e %H:%M:%S %Y", localtime($facts_timestamp);
+    my $query = { query => [ "=", "certname", $node->{certname} ] };
+    $puppet_db->refresh( "facts", $query );
+    my $data = $puppet_db->results;
+    my $hostname;
+    my $hostdata = {};
+    for my $fact ( @$data ){
+        if( $fact->{name} eq "hostname" ){
+            $hostname = $fact->{value};
+            last;
+        }
+    }
+    $hostdata->{nodename} = $hostname;
+    $hostdata->{hostname} = $node->{certname};
+    $hostdata->{username} = $username;
+    for my $fact ( @$data ){
+        if( $fact->{name} eq "kernel" ){
+            $hostdata->{osFamily} = $fact->{value};
+        }
+        if( $fact->{name} eq "os" ){
+            $hostdata->{osName} = $fact->{value}{name};
+            $hostdata->{osVersion} = $fact->{value}{release}{full};
+            $hostdata->{osArch} = $fact->{value}{architecture};
+        }
+    }
+    $yaml->{$hostname} = $hostdata;
+}
+
+print Dump( $yaml );
+
