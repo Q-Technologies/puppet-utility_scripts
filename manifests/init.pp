@@ -46,7 +46,7 @@ class utility_scripts (
   # CMDB inventory collection
   String $send_cmdb_data_path = "${scripts_path_prefix}/sbin/puppet_send_cmdb_data",
   Data $cmdb_import_mappings = {},
-  Collection $cmdb_email_to = '',
+  Collection $cmdb_email_to = [],
 
 ) {
 
