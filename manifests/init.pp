@@ -178,7 +178,7 @@ class utility_scripts (
       owner   => $::settings::user,
       group   => $::settings::group,
       mode    => '0750',
-      content => epp('puppet_master/role_maintenance.pl.epp', {
+      content => epp('utility_scripts/role_maintenance.pl.epp', {
         api_access_config_path      => $api_access_config_path,
         puppet_classify_environment => $puppet_classify_environment,
         roles_parent_group          => $roles_parent_group,
@@ -193,7 +193,7 @@ class utility_scripts (
       owner   => $::settings::user,
       group   => $::settings::group,
       mode    => '0750',
-      content => epp('puppet_master/puppet_rundeck_lists.pl.epp', {
+      content => epp('utility_scripts/puppet_rundeck_lists.pl.epp', {
         api_access_config_path => $api_access_config_path,
         perl_path              => $perl_path,
         perl_lib_path          => $perl_lib_path,
@@ -205,7 +205,7 @@ class utility_scripts (
       file { $send_cmdb_data_path:
         ensure  => file,
         mode    => '0755',
-        content => epp('puppet_master/send_cmdb_data.pl.epp', {
+        content => epp('utility_scripts/send_cmdb_data.pl.epp', {
           api_access_config_path => $api_access_config_path,
           cmdb_import_mappings   => $cmdb_import_mappings,
           cmdb_email_to          => $cmdb_email_to,
