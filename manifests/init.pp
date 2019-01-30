@@ -6,7 +6,7 @@ class utility_scripts (
   String $scripts_path_prefix,
 
   # Create any intermediate directory paths
-  Collection $required_paths,
+  #Collection $required_paths,
 
   # Perl config
   String $perl_path,
@@ -55,12 +55,12 @@ class utility_scripts (
   $api_access_config_hiera = lookup('utility_scripts::api_access_config', Data, deep, {})
   $api_access_config = $api_access_config_default + $api_access_config_hiera
 
-  file { $required_paths:
-    ensure => directory,
-    owner  => $::settings::user,
-    group  => $::settings::user,
-    mode   => '0775',
-  }
+  #file { $required_paths:
+  #ensure => directory,
+  #owner  => $::settings::user,
+  #group  => $::settings::user,
+  #mode   => '0775',
+  #}
 
   # Config file for API access to the Puppet Master
   if !empty( $api_access_config ){
@@ -208,7 +208,7 @@ class utility_scripts (
       }),
     }
 
-    # ServiceNow inventory collection
+    # CMDB inventory collection
     if !empty( $cmdb_email_to ) {
       file { $send_cmdb_data_path:
         ensure  => file,
