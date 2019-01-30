@@ -144,16 +144,8 @@ class utility_scripts (
     }
   }
 
-  # Let's assume we want to install the scripts if the config is found in hiera
+  # The rest of the scripts will be installed if asked to from Hiera
   if $inventory_scripts_install {
-    file { $api_access_config_path:
-      ensure  => file,
-      owner   => 'root',
-      group   => 'root',
-      mode    => '0644',
-      content => inline_template('<%= @api_access_config.to_yaml %>'),
-    }
-
     file { $puppet_list_nodes_script_path:
       ensure  => file,
       owner   => 'root',
