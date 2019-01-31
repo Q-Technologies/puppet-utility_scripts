@@ -48,7 +48,13 @@ class utility_scripts (
   Data $cmdb_import_mappings = {},
   Collection $cmdb_email_to = [],
 
+  # Permissions of the files
+  String $file_owner = 'root',
+  String $file_group = 'root',
+  String $data_mode = '0640',
+  String $script_mode = '0750',
 ) {
+
 
   # Populate using deep lookup command as we want to merge data from multiple hiera configs
   $puppet_promote_config     = lookup('utility_scripts::puppet_promote_config', Data, deep, {})
@@ -66,9 +72,9 @@ class utility_scripts (
   if !empty( $api_access_config ){
     file { $api_access_config_path:
       ensure  => file,
-      owner   => 'root',
-      group   => 'root',
-      mode    => '0640',
+      owner   => $file_owner,
+      group   => $file_group,
+      mode    => $data_mode,
       content => inline_template('<%= @api_access_config.to_yaml %>'),
     }
   }
@@ -85,9 +91,9 @@ class utility_scripts (
   if $master_backup_scripts_install {
     file { $dump_classifier_path:
       ensure  => file,
-      owner   => 'root',
-      group   => 'root',
-      mode    => '0750',
+      owner   => $file_owner,
+      group   => $file_group,
+      mode    => $script_mode,
       content => epp('utility_scripts/backup/dump_classifier.pl.epp', {
         api_access_config_path => $api_access_config_path,
         perl_path              => $perl_path,
@@ -98,9 +104,9 @@ class utility_scripts (
 
     file { $backup_master_to_fs:
       ensure  => file,
-      owner   => 'root',
-      group   => 'root',
-      mode    => '0750',
+      owner   => $file_owner,
+      group   => $file_group,
+      mode    => $script_mode,
       content => epp('utility_scripts/backup/backup.sh.epp', {
         destination_path => $backup_destination_path,
         }
@@ -123,9 +129,9 @@ class utility_scripts (
     # Config file for Puppet promote code script
     file { $puppet_promote_config_path:
       ensure  => file,
-      owner   => 'root',
-      group   => 'root',
-      mode    => '0640',
+      owner   => $file_owner,
+      group   => $file_group,
+      mode    => $data_mode,
       content => epp('utility_scripts/promote_code/puppet_promote_code_settings.epp', {
         config => $puppet_promote_config,
         }
@@ -134,9 +140,9 @@ class utility_scripts (
 
     file { $puppet_promote_script_path:
       ensure  => file,
-      owner   => 'root',
-      group   => 'root',
-      mode    => '0750',
+      owner   => $file_owner,
+      group   => $file_group,
+      mode    => $script_mode,
       content => epp( 'utility_scripts/promote_code/puppet_promote_code.sh.epp', {
         config_path => $puppet_promote_config_path,
         }
@@ -148,9 +154,9 @@ class utility_scripts (
   if $inventory_scripts_install {
     file { $puppet_list_nodes_script_path:
       ensure  => file,
-      owner   => 'root',
-      group   => 'root',
-      mode    => '0750',
+      owner   => $file_owner,
+      group   => $file_group,
+      mode    => $script_mode,
       content => epp( 'utility_scripts/puppet_list_nodes.pl.epp', {
         api_access_config_path => $api_access_config_path,
         perl_path              => $perl_path,
@@ -161,9 +167,9 @@ class utility_scripts (
 
     file { $puppet_db_script_path:
       ensure  => file,
-      owner   => 'root',
-      group   => 'root',
-      mode    => '0755',
+      owner   => $file_owner,
+      group   => $file_group,
+      mode    => $script_mode,
       content => epp( 'utility_scripts/puppet_db.pl.epp', {
         api_access_config_path => $api_access_config_path,
         perl_path              => $perl_path,
@@ -175,9 +181,9 @@ class utility_scripts (
     # Role Maintenance script
     file { $role_maint_script_path:
       ensure  => file,
-      owner   => $::settings::user,
-      group   => $::settings::group,
-      mode    => '0750',
+      owner   => $file_owner,
+      group   => $file_group,
+      mode    => $script_mode,
       content => epp('utility_scripts/role_maintenance.pl.epp', {
         api_access_config_path      => $api_access_config_path,
         puppet_classify_environment => $puppet_classify_environment,
@@ -190,9 +196,9 @@ class utility_scripts (
     # Puppet server to rundeck host list script
     file { $puppet_rundeck_lists_script_path:
       ensure  => file,
-      owner   => $::settings::user,
-      group   => $::settings::group,
-      mode    => '0750',
+      owner   => $file_owner,
+      group   => $file_group,
+      mode    => $script_mode,
       content => epp('utility_scripts/puppet_rundeck_lists.pl.epp', {
         api_access_config_path => $api_access_config_path,
         perl_path              => $perl_path,
@@ -204,7 +210,7 @@ class utility_scripts (
     if !empty( $cmdb_email_to ) {
       file { $send_cmdb_data_path:
         ensure  => file,
-        mode    => '0755',
+        mode    => $script_mode,
         content => epp('utility_scripts/send_cmdb_data.pl.epp', {
           api_access_config_path => $api_access_config_path,
           cmdb_import_mappings   => $cmdb_import_mappings,
