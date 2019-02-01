@@ -12,9 +12,9 @@ utility_scripts::required_paths_default: []
 
 # Puppet DB connection settings
 utility_scripts::api_access_config_default:
-  puppetdb_host: localhost
+  puppetdb_host: puppet
   puppetdb_port: 8080
-  puppet_classify_host: localhost
+  puppet_classify_host: puppet
   puppet_classify_port: 4433
   puppet_classify_cert: api_access
   puppet_ssl_path: "/etc/puppetlabs/puppet/ssl"
