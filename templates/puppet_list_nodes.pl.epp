@@ -37,7 +37,7 @@ my $parent_id;
 my $parent = "All Nodes";
 my @actions = qw(all in_group match_fact match_name );
 
-my $puppetdb = Puppet::DB->new(       
+my $puppet_db = Puppet::DB->new(       
                   server_name => $config->{puppetdb_host},
                   server_port => $config->{puppetdb_port},
                 );
@@ -49,8 +49,8 @@ my $classify = Puppet::Classify->new(
                   puppet_db   => $puppet_db,
                 );
 
-$puppetdb->refresh("nodes", {});
-my $puppetdb_nodes = $puppetdb->results;
+$puppet_db->refresh("nodes", {});
+my $puppetdb_nodes = $puppet_db->results;
 
 # Preliminary input checks
 if( $opt_h ){
