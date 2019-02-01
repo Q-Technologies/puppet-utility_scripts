@@ -29,11 +29,12 @@ my $puppet_db = Puppet::DB->new(
     server_port => $config->{puppetdb_host},
 );
 my $classify = Puppet::Classify->new(
-    cert_name   => $config->{puppet_classify_cert},
-    server_name => $config->{puppet_classify_host},
-    server_port => $config->{puppet_classify_port},
-    environment => '<%= $puppet_classify_environment %>',
-    puppet_db   => $puppet_db,
+    cert_name       => $config->{puppet_classify_cert},
+    server_name     => $config->{puppet_classify_host},
+    server_port     => $config->{puppet_classify_port},
+    puppet_ssl_path => $config->{puppet_ssl_path},
+    environment     => '<%= $puppet_classify_environment %>',
+    puppet_db       => $puppet_db,
 );
 my $roles_parent_group = '<%= $roles_parent_group %>';
 my $action = $ARGV[0];

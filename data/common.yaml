@@ -17,6 +17,7 @@ utility_scripts::api_access_config_default:
   puppet_classify_host: localhost
   puppet_classify_port: 4433
   puppet_classify_cert: api_access
+  puppet_ssl_path: "/etc/puppetlabs/puppet/ssl"
 
 
 
