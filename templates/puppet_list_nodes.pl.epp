@@ -11,7 +11,7 @@
 
 use strict;
 use 5.10.0;
-<% if $perl_lib_path { %>
+<% if !empty($perl_lib_path) { %>
 use lib '<%= $perl_lib_path %>';
 <% } %>
 use Data::Dumper;
@@ -37,16 +37,18 @@ my $parent_id;
 my $parent = "All Nodes";
 my @actions = qw(all in_group match_fact match_name );
 
-my $classify = Puppet::Classify->new( 
-                  cert_name   => $config->{puppet_classify_cert},
-                  api_server  => $config->{puppet_classify_host},
-                  api_port    => $config->{puppet_classify_port},
-                );
-
 my $puppetdb = Puppet::DB->new(       
                   server_name => $config->{puppetdb_host},
                   server_port => $config->{puppetdb_port},
                 );
+
+my $classify = Puppet::Classify->new( 
+                  cert_name   => $config->{puppet_classify_cert},
+                  api_server  => $config->{puppet_classify_host},
+                  api_port    => $config->{puppet_classify_port},
+                  puppet_db   => $puppet_db,
+                );
+
 $puppetdb->refresh("nodes", {});
 my $puppetdb_nodes = $puppetdb->results;
 
