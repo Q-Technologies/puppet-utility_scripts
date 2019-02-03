@@ -8,7 +8,7 @@
 
 use strict;
 use 5.10.0;
-<% if $perl_lib_path { %>
+<% if !empty($perl_lib_path) { %>
 use lib '<%= $perl_lib_path %>';
 <% } %>
 use YAML::XS qw(Dump Load LoadFile);
@@ -36,10 +36,18 @@ use constant ERROR_MSG => "error";
 my $json = JSON->new->allow_nonref;
 
 # Create a Puppet classification object
-my $puppet_db = Puppet::DB->newPuppet::DB->new(
+my $puppet_db = Puppet::DB->new(
     server_name => $config->{puppetdb_host},
-    server_port => $config->{puppetdb_host},
+    server_port => $config->{puppetdb_port},
 );
+my $classify = Puppet::Classify->new( 
+                  cert_name       => $config->{puppet_classify_cert},
+                  server_name     => $config->{puppet_classify_host},
+                  server_port     => $config->{puppet_classify_port},
+                  puppet_ssl_path => $config->{puppet_ssl_path},
+                  puppet_db       => $puppet_db,
+                );
+
 
 # Preliminary input checks
 my @actions = qw(all_by_hostname certname_from_hostname list_nodes is_hostname_in_puppetdb);
@@ -53,13 +61,13 @@ $log->fatal_err( "You need to specify the script action: -a ".join(" | ", @actio
 
 # Mainline
 
-$puppet_db->refresh_facts;
 if( $opt_a eq 'certname_from_hostname' ){
     my $hostname = $ARGV[0];
     if( ! $hostname ){
         say STDERR "Please specify the hostname of the system to lookup.";
         exit 1;
     }
+    $puppet_db->refresh_facts;
     my $fact = $puppet_db->get_fact_by_short_hostname('trusted',$hostname);
     if( $fact and $fact->{certname} ){
         say $fact->{certname};
@@ -73,6 +81,7 @@ if( $opt_a eq 'certname_from_hostname' ){
         say STDERR "Please specify the hostname of the system to lookup.";
         exit 1;
     }
+    $puppet_db->refresh_facts;
     my $facts = $puppet_db->allfacts_by_hostname;
     if( $facts and $facts->{$hostname} ){
         say $json->pretty->encode( $facts->{$hostname} );
@@ -88,7 +97,8 @@ if( $opt_a eq 'certname_from_hostname' ){
     }
     my $found = $puppet_db->is_hostname_in_puppetdb( $hostname ) ? JSON::true : JSON::false;
     say $json->pretty->encode( { hostname_is_in_puppetdb => $found } );
-} elsif( $opt_a eq 'list_nodes' ){
+} elsif( $opt_a eq 'list_all_nodes' ){
+    $puppet_db->refresh_facts;
     my $facts = $puppet_db->allfacts_by_certname;
     if( $facts and keys %{$facts} ){
         say join( "\n", keys %{$facts} );

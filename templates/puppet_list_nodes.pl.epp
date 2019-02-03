@@ -1,7 +1,8 @@
 #!<%= $perl_path %>
 
 # This script is for listing nodes in Puppet
-# 
+# It can select the nodes using facts, but it will not display facts
+#
 # It makes the following assumptions:
 #   * The parent group is 'All Nodes' - do not change this group!
 #
@@ -50,23 +51,20 @@ my $classify = Puppet::Classify->new(
                   puppet_db       => $puppet_db,
                 );
 
-$puppet_db->refresh("nodes", {});
-my $puppetdb_nodes = $puppet_db->results;
 
 # Preliminary input checks
 if( $opt_h ){
-    say "\n$0 -a action [-m group|fact|node] [-f] [-v] [-d]";
+    say "\n$0 -a action [group|fact name|node] [fact value]";
     say "\nThe following actions are supported:";
     for( @actions ){
         say "\t".$_;
     }
     say;
-    say "-m is string to match. Specify as a Perl regular expression without the /'s";
+    #say "-m is string to match. Specify as a Perl regular expression without the /'s";
     say "\t'group' is a Puppet Enterprise Console group";
-    say "\t'fact' is a PuppetDB fact";
+    say "\t'fact' is a PuppetDB fact in dot notation";
     say "\t'node' is a Puppet node - i.e. clientcert";
     say;
-    say "-f is force. Sometimes required as a layer of safety";
     say "-v is to show verbose messages";
     say "-d is to show debug messages";
     say;
@@ -75,26 +73,49 @@ if( $opt_h ){
 my $action_re = join("|", @actions);
 $action_re = qr/$action_re/;
 $log->fatal_err( "You need to specify the script action: -a ".join(" | ", @actions ) ) if not $opt_a =~ $action_re;
-$log->fatal_err( "You need to specify the string to use as the regular expression (-m)" ) if not $opt_m and $opt_a !~ /all/;
+#$log->fatal_err( "You need to specify the string to use as the regular expression (-m)" ) if not $opt_m and $opt_a !~ /all/;
 
 # Mainline
-my $groups = $classify->get_groups();
+#my $groups = $classify->get_groups();
 #say Dumper( $groups );
 
 if( $opt_a eq "all" ){
-    list_all_nodes();
+    $puppet_db->refresh("nodes", {"order_by" => [{"field" => "certname"}]});
+    list_nodes();
 } elsif( $opt_a eq "in_group" ){
-    say "Not implemented yet!";
+    my $group_name = $ARGV[0];
+    $group_name = "All Nodes" unless $group_name;
+    my $rule = $classify->get_group_rule( $group_name );
+    $rule = $classify->convert_rule_for_puppetdb( $rule );
+    $rule->{order_by} = [{"field" => "certname"}];
+    $puppet_db->refresh("nodes", $rule);
+    list_nodes();
 } elsif( $opt_a eq "match_fact" ){
-    say "Not implemented yet!";
+    my $fact = $ARGV[0];
+    my $value = $ARGV[1];
+    unless( $fact and $value ){
+        $log->fatal_err( "You need to specify the fact and value to match as arguments" );
+    }
+    if( $fact =~ /\./ ){
+        $puppet_db->refresh("fact-contents", { 'query' => [ "and", ["=","path", [split( /\./, $fact)] ], ["~", "value", $value ] ], "order_by" => [{"field" => "certname"}] });
+    } else {
+        $puppet_db->refresh("facts", { 'query' => [ "and", ["=","name", $fact], ["~", "value", $value ] ], "order_by" => [{"field" => "certname"}] });
+    }
+    list_nodes();
 } elsif( $opt_a eq "match_name" ){
-    say "Not implemented yet!";
+    my $name = $ARGV[0];
+    unless( $name ){
+        $log->fatal_err( "You need to specify the a string to match the hostname as the argument" );
+    }
+    $puppet_db->refresh("nodes", { 'query' => ["~","certname",$name], "order_by" => [{"field" => "certname"}] });
+    list_nodes();
 } else {
     $log->fatal_err( "The action: '$opt_a' is not known to the script" );
     exit 1;
 }
 
-sub list_all_nodes {
+sub list_nodes {
+    my $puppetdb_nodes = $puppet_db->results;
     for my $node ( @$puppetdb_nodes ){
         say $node->{certname};
     }
