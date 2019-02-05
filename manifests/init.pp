@@ -157,7 +157,7 @@ class utility_scripts (
       owner   => $file_owner,
       group   => $file_group,
       mode    => $script_mode,
-      content => epp( 'utility_scripts/puppet_list_nodes.pl.epp', {
+      content => epp( 'utility_scripts/puppet_db.pl.epp', {
         api_access_config_path => $api_access_config_path,
         perl_path              => $perl_path,
         perl_lib_path          => $perl_lib_path,
@@ -199,7 +199,7 @@ class utility_scripts (
       owner   => $file_owner,
       group   => $file_group,
       mode    => $script_mode,
-      content => epp('utility_scripts/puppet_rundeck_lists.pl.epp', {
+      content => epp('utility_scripts/puppet_db.pl.epp', {
         api_access_config_path => $api_access_config_path,
         perl_path              => $perl_path,
         perl_lib_path          => $perl_lib_path,

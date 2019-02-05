@@ -1,45 +1,71 @@
 #!<%= $perl_path %>
 
-# This script is a CLI to provide PuppetDB data
+# This script is for creating lists from the puppet DB and dumping facts
 #
-# Author: Matthew Mallard
-# Website: www.q-technologies.com.au
-# Date: 26th October 2017
+# If it is invoked with rundeck in the script name then it will
+# produce a yaml dump in the format expected for Rundeck when using SSH, 
+# if it has facts in the script name it will dump facts in the specified
+# format, otherwise it will produce a simple list of nodes
+#
+# The lists can be determined by matching facts or groups in the node classifier
+#
+#   Author M. Mallard 17 May 2016
+#
 
 use strict;
-use 5.10.0;
+use 5.10.0; # We want to use say
 <% if !empty($perl_lib_path) { %>
 use lib '<%= $perl_lib_path %>';
 <% } %>
-use YAML::XS qw(Dump Load LoadFile);
 use Data::Dumper;
 use String::CamelCase qw( camelize );
-use Puppet::Classify;
+use POSIX qw(strftime);
 use Puppet::DB;
+use Puppet::Classify;
+use YAML;
 use Getopt::Std;
-#use Term::ANSIColor;
 use Log::MixedColor;
+use File::Basename;
 use JSON; # imports encode_json, decode_json, to_json and from_json
+use Hash::Flatten qw(:all);
 
-my $log = Log::MixedColor->new;
-my $config = LoadFile( "<%= $api_access_config_path %>" );
+# The behaviour of this script will change depending on how it is called
+# if it has rundeck in the name it will output data for Rundeck host lists
+# if it has facts in the name it will output matching facts for each matching host
+# otherwise it will just print a list of matching hosts
+my $scriptname = basename($0);
 
 # Command line argument processing
-our( $opt_a, $opt_h, $opt_v, $opt_d, $opt_f );
-getopts('a:g:hvdf');
+our( $opt_a, $opt_r, $opt_h, $opt_v, $opt_d, $opt_f, $opt_u );
+getopts('a:r:hvdf:u:');
+$Getopt::Std::STANDARD_HELP_VERSION = 1;
 
-# Constants
-use constant DEBUG_MSG => "debug";
-use constant ERROR_MSG => "error";
+# Set up logging
+my $log = Log::MixedColor->new( verbose => $opt_v, debug => $opt_d );
 
 # Globals
+my $config = LoadFile( "<%= $api_access_config_path %>" );
+my $format = '';
+my $values = '[fact value]';
+my $parent = "All Nodes";
 my $json = JSON->new->allow_nonref;
 
-# Create a Puppet classification object
+# Main script actions - i.e. how to interpret the other command line arguments
+my @actions = qw(all in_group match_fact match_host );
+
+# Add some extra options when running a fact type script
+if( $scriptname =~ /facts/i ){
+    $format = '[-f json|yaml|csv ] ';
+    $values = '[fact value|fact names]';
+}
+
+# Create a Puppet DB object
 my $puppet_db = Puppet::DB->new(
     server_name => $config->{puppetdb_host},
     server_port => $config->{puppetdb_port},
 );
+
+# Create a Puppet classification object
 my $classify = Puppet::Classify->new( 
                   cert_name       => $config->{puppet_classify_cert},
                   server_name     => $config->{puppet_classify_host},
@@ -48,67 +74,207 @@ my $classify = Puppet::Classify->new(
                   puppet_db       => $puppet_db,
                 );
 
-
 # Preliminary input checks
-my @actions = qw(all_by_hostname certname_from_hostname list_nodes is_hostname_in_puppetdb);
-my $action_re = join("|", @actions);
 if( $opt_h ){
-    say STDERR "$0 [-v] [-d] -a $action_re";
-    exit 1;
+    say "\n$0 $format-a action [group|fact name|node] $values";
+    say "\nThe following actions are supported:";
+    for( @actions ){
+        say "\t\t".$_;
+    }
+    say;
+    #say "-m is string to match. Specify as a Perl regular expression without the /'s";
+    say "\t'group' is a Puppet Enterprise Console group";
+    say "\t'fact name' is a PuppetDB fact in dot notation";
+    say "\t'node' is a Puppet node - i.e. clientcert";
+    say "\t'fact value' is required when matching a fact";
+    if( $scriptname =~ /facts/i ){
+        say "\t'fact names' is optional.  It will only return the specified facts for the group or node.";
+        say;
+        say "-r restrict the fact fields to display (comma seperated list)";
+    } else {
+        say;
+    }
+    say "-f data format to output (defaults to yaml)";
+    say;
+    say "-v is to show verbose messages";
+    say "-d is to show debug messages";
+    say;
+    if( $scriptname =~ /rundeck/i ){
+        say "-u the user to use for SSH access for Rundeck";
+        say;
+    }
+    exit;
 }
+my $action_re = join("|", @actions);
 $action_re = qr/$action_re/;
 $log->fatal_err( "You need to specify the script action: -a ".join(" | ", @actions ) ) if not $opt_a =~ $action_re;
+#$log->fatal_err( "You need to specify the string to use as the regular expression (-m)" ) if not $opt_m and $opt_a !~ /all/;
 
-# Mainline
-
-if( $opt_a eq 'certname_from_hostname' ){
-    my $hostname = $ARGV[0];
-    if( ! $hostname ){
-        say STDERR "Please specify the hostname of the system to lookup.";
-        exit 1;
-    }
-    $puppet_db->refresh_facts;
-    my $fact = $puppet_db->get_fact_by_short_hostname('trusted',$hostname);
-    if( $fact and $fact->{certname} ){
-        say $fact->{certname};
-    } else {
-        say STDERR "$hostname was not found";
-        exit 1;
-    }
-} elsif( $opt_a eq 'all_by_hostname' ){
-    my $hostname = $ARGV[0];
-    if( ! $hostname ){
-        say STDERR "Please specify the hostname of the system to lookup.";
-        exit 1;
-    }
-    $puppet_db->refresh_facts;
-    my $facts = $puppet_db->allfacts_by_hostname;
-    if( $facts and $facts->{$hostname} ){
-        say $json->pretty->encode( $facts->{$hostname} );
-    } else {
-        say STDERR "$hostname was not found";
-        exit 1;
-    }
-} elsif( $opt_a eq 'is_hostname_in_puppetdb' ){
-    my $hostname = $ARGV[0];
-    if( ! $hostname ){
-        say STDERR "Please specify the hostname of the system to lookup.";
-        exit 1;
-    }
-    my $found = $puppet_db->is_hostname_in_puppetdb( $hostname ) ? JSON::true : JSON::false;
-    say $json->pretty->encode( { hostname_is_in_puppetdb => $found } );
-} elsif( $opt_a eq 'list_all_nodes' ){
-    $puppet_db->refresh_facts;
-    my $facts = $puppet_db->allfacts_by_certname;
-    if( $facts and keys %{$facts} ){
-        say join( "\n", keys %{$facts} );
-    } else {
-        say STDERR "There was an error retrieving facts";
-        exit 1;
-    }
-} else {
-    say STDERR "Action: $opt_a is not implemented!";
-    exit 1;
+my $username = $opt_u;
+if( ! $username and $scriptname =~ /rundeck/i ){
+    $log->fatal_err( "You need to specify the username to use for SSH access as the argument" );
 }
 
+# Provide an option for how to output the data: CSV, YAML, JSON
+my $data_format = $opt_f;
+$data_format = "yaml" unless $data_format;
 
+# Restrict the facts that are returned in the output
+my $restrict_re = $opt_r;
+for( $restrict_re ){
+    s/,/|/g;
+    s/\./\\\./g;
+}
+
+# Mainline
+#
+# All actions have the same entry point, but different rules and modes will be used
+# depending on the action
+if( $opt_a =~ /^(all|in_group|match_fact|match_host)$/ ){
+    my $mode = "nodes";
+    $mode = "facts" if( $scriptname =~ /rundeck|facts/i );
+    my $rule = {"order_by" => [{"field" => "certname"}]};
+    if( $opt_a eq "in_group" ){
+        my $group_name = $ARGV[0];
+        $group_name = $parent unless $group_name;
+        $rule = $classify->get_group_rule( $group_name );
+        $rule = $classify->convert_rule_for_puppetdb( $rule );
+        $rule->{order_by} = [{"field" => "certname"}];
+    } elsif( $opt_a eq "match_fact" ){
+        my $fact = $ARGV[0];
+        my $value = $ARGV[1];
+        unless( $fact and $value ){
+            $log->fatal_err( "You need to specify the fact and value to match as arguments" );
+        }
+        if( $fact =~ /\./ ){
+            $mode = "fact-contents";
+            $rule = { 'query' => [ "and", ["=","path", [split( /\./, $fact)] ], ["~", "value", $value ] ], "order_by" => [{"field" => "certname"}] };
+        } else {
+            $mode = "facts";
+            $rule = { 'query' => [ "and", ["=","name", $fact], ["~", "value", $value ] ], "order_by" => [{"field" => "certname"}] };
+        }
+    } elsif( $opt_a eq "match_host" ){
+        my $name = $ARGV[0];
+        unless( $name ){
+            $log->fatal_err( "You need to specify the a string to match the hostname as the argument" );
+        }
+        $rule = { 'query' => ["~","certname",$name], "order_by" => [{"field" => "certname"}] };
+    }
+    $puppet_db->refresh($mode, $rule);
+    my $output = produce_output( $puppet_db->results );
+    if( $scriptname =~ /facts/i ){
+        if( $data_format eq 'csv' ){
+            my $fact_names = {};
+            for my $node ( keys %$output ){
+                my $facts = flatten( $output->{$node}, { HashDelimiter => '.' } );
+                for my $fact ( keys %$facts ){
+                    $fact_names->{$fact} = 1 if !$opt_r or $fact =~ /^($restrict_re)/;
+                }
+            }
+            my @row = ( "Certname", sort keys %$fact_names );
+            for( @row ){
+                s/"/\\"/g;
+            }
+            say '"'.join('","', @row ).'"';
+            for my $node ( keys %$output ){
+                my @row = ( $node );
+                my $facts = flatten( $output->{$node}, { HashDelimiter => '.' } );
+                for my $col ( sort keys %$fact_names ){
+                    $col =~ s/"/\\"/g;
+                    push @row, $facts->{$col};
+                }
+                say '"'.join('","', @row ).'"';
+            }
+        } elsif( $data_format eq 'json' ){
+            say $json->pretty->encode( $output );
+        } else {
+            say Dump( $output);
+        }
+    } elsif( $scriptname =~ /rundeck/i ){
+        say Dump( $output);
+    } else {
+        say join( "\n", @$output);
+    }
+} else {
+    $log->fatal_err( "The action: '$opt_a' is not known to the script" );
+}
+
+# Wrapper function to produce the correct output type according to the script name
+sub produce_output {
+    my $data = shift;
+    if( $scriptname =~ /rundeck/i ){
+        return dump_rundeck_nodes( $data );
+    } elsif( $scriptname =~ /facts/i ){
+        return transform_facts( $data );
+    } else {
+        return list_nodes( $data );
+    }
+}
+
+# Dump the format for Rundeck YAML resource files
+sub dump_rundeck_nodes {
+    my $facts = shift;
+
+    return unless $facts;
+
+    $facts = transform_facts( $facts);
+
+    my $yaml;
+    for my $certname ( keys %$facts ){
+        my $hostname = $facts->{$certname}{hostname};
+        my $hostdata = {};
+        $hostdata->{nodename} = $hostname;
+        $hostdata->{hostname} = $certname;
+        $hostdata->{username} = $username;
+        $hostdata->{osFamily} = $facts->{$certname}{kernel};
+        $hostdata->{osName} = $facts->{$certname}{os}{name};
+        $hostdata->{osVersion} = $facts->{$certname}{os}{release}{full};
+        $hostdata->{osArch} = $facts->{$certname}{os}{architecture};
+        $yaml->{$hostname} = $hostdata;
+    }
+
+    return $yaml;
+}
+
+# Simply list the nodes - one per line
+sub list_nodes {
+    my $puppetdb_nodes = shift;
+    my @nodes;
+    for my $node ( @$puppetdb_nodes ){
+        push @nodes, $node->{certname};
+    }
+    return \@nodes;
+}
+
+# Transform the facts.
+# When matching by fact we need to get all the facts again by matching the hosts
+# otherwise we only get the matching facts - we want all of them, so we can return multiples
+# (The native PuppetDB can only return the fact(s) being searched not all the facts that belong 
+# to a host matching the search for fact).
+sub transform_facts {
+    my $facts = shift;
+    if( $opt_a eq "match_fact" ){
+        my $nodes = list_nodes( $facts );
+        my @query = ( "or" );
+        for my $node ( @$nodes ){
+            push @query, ["=","certname",$node];
+        }
+        my $rule = { 'query' => \@query };
+        $puppet_db->refresh("facts", $rule);
+        $facts = $puppet_db->results;
+    }
+    $puppet_db->facts( $facts );
+    $facts = $puppet_db->allfacts_by_certname;
+    if( $scriptname =~ /facts/i ){
+        my $trimmed_facts = {};
+        for my $node ( keys %$facts ){
+            my $node_facts = flatten( $facts->{$node} );
+            for my $fact ( keys %$node_facts ){
+                delete $node_facts->{$fact} if $opt_r and $fact !~ /^($restrict_re)/
+            }
+            $trimmed_facts->{$node} = unflatten( $node_facts );
+        }
+        $facts = $trimmed_facts;
+    }
+    return $facts;
+}
