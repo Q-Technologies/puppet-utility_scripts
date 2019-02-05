@@ -19,6 +19,7 @@ use lib '<%= $perl_lib_path %>';
 use Data::Dumper;
 use String::CamelCase qw( camelize );
 use Puppet::Classify;
+use YAML qw(LoadFile);
 use 5.10.0;
 
 my $config = LoadFile( "<%= $api_access_config_path %>" );

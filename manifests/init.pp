@@ -52,7 +52,7 @@ class utility_scripts (
   String $file_owner = 'root',
   String $file_group = 'root',
   String $data_mode = '0640',
-  String $script_mode = '0750',
+  String $script_mode = '0755',
 ) {
 
 
