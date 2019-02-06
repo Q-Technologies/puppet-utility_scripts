@@ -22,7 +22,7 @@ use String::CamelCase qw( camelize );
 use POSIX qw(strftime);
 use Puppet::DB;
 use Puppet::Classify;
-use YAML qw(LoadFile);
+use YAML qw(LoadFile Dump);
 use Getopt::Std;
 use Log::MixedColor;
 use File::Basename;
