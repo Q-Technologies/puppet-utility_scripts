@@ -27,7 +27,7 @@ my $config = LoadFile( "<%= $api_access_config_path %>" );
 # Globals
 my $puppet_db = Puppet::DB->new(
     server_name => $config->{puppetdb_host},
-    server_port => $config->{puppetdb_host},
+    server_port => $config->{puppetdb_port},
 );
 my $classify = Puppet::Classify->new(
     cert_name       => $config->{puppet_classify_cert},
