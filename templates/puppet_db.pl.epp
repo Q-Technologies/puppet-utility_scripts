@@ -228,8 +228,14 @@ sub dump_rundeck_nodes {
         $hostdata->{username} = $username;
         $hostdata->{osFamily} = $facts->{$certname}{kernel};
         $hostdata->{osName} = $facts->{$certname}{os}{name};
-        $hostdata->{osVersion} = $facts->{$certname}{os}{release}{full};
+        $hostdata->{osVersion} = $facts->{$certname}{os}{release}{major};
         $hostdata->{osArch} = $facts->{$certname}{os}{architecture};
+        $hostdata->{role} = $facts->{$certname}{trusted}{extensions}{pp_role};
+        $hostdata->{environment} = $facts->{$certname}{trusted}{extensions}{pp_apptier};
+        $hostdata->{sub_environment} = $facts->{$certname}{trusted}{extensions}{ap_app_sub_env};
+        $hostdata->{network_zone} = $facts->{$certname}{trusted}{extensions}{pp_zone};
+        $hostdata->{application} = $facts->{$certname}{trusted}{extensions}{pp_application};
+        $hostdata->{cloud} = $facts->{$certname}{trusted}{extensions}{pp_cloudplatform};
         $yaml->{$hostname} = $hostdata;
     }
 
