@@ -56,7 +56,7 @@ my @actions = qw(all in_group match_fact match_host );
 # Add some extra options when running a fact type script
 if( $scriptname =~ /facts/i ){
     $format = '[-f json|yaml|csv ] ';
-    $values = '[fact value|fact names]';
+    $values = '[fact value]';
 }
 
 # Create a Puppet DB object
@@ -88,16 +88,15 @@ if( $opt_h ){
     say "\t'node' is a Puppet node - i.e. clientcert";
     say "\t'fact value' is required when matching a fact";
     if( $scriptname =~ /facts/i ){
-        say "\t'fact names' is optional.  It will only return the specified facts for the group or node.";
         say;
-        say "-r restrict the fact fields to display (comma seperated list)";
+        say "\t-r restrict the fact fields to display ( supply a comma seperated list)";
     } else {
         say;
     }
-    say "-f data format to output (defaults to yaml)";
+    say "\t-f data format to output (defaults to yaml)";
     say;
-    say "-v is to show verbose messages";
-    say "-d is to show debug messages";
+    say "\t-v is to show verbose messages";
+    say "\t-d is to show debug messages";
     say;
     if( $scriptname =~ /rundeck/i ){
         say "-u the user to use for SSH access for Rundeck";
@@ -135,14 +134,14 @@ if( $opt_a =~ /^(all|in_group|match_fact|match_host)$/ ){
     $mode = "facts" if( $scriptname =~ /rundeck|facts/i );
     my $rule = {"order_by" => [{"field" => "certname"}]};
     if( $opt_a eq "in_group" ){
-        my $group_name = $ARGV[0];
+        my $group_name = shift;
         $group_name = $parent unless $group_name;
         $rule = $classify->get_group_rule( $group_name );
         $rule = $classify->convert_rule_for_puppetdb( $rule );
         $rule->{order_by} = [{"field" => "certname"}];
     } elsif( $opt_a eq "match_fact" ){
-        my $fact = $ARGV[0];
-        my $value = $ARGV[1];
+        my $fact = shift;
+        my $value = shift;
         unless( $fact and $value ){
             $log->fatal_err( "You need to specify the fact and value to match as arguments" );
         }
@@ -154,7 +153,7 @@ if( $opt_a =~ /^(all|in_group|match_fact|match_host)$/ ){
             $rule = { 'query' => [ "and", ["=","name", $fact], ["~", "value", $value ] ], "order_by" => [{"field" => "certname"}] };
         }
     } elsif( $opt_a eq "match_host" ){
-        my $name = $ARGV[0];
+        my $name = shift;
         unless( $name ){
             $log->fatal_err( "You need to specify the a string to match the hostname as the argument" );
         }
