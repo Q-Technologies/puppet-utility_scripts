@@ -30,7 +30,7 @@ class utility_scripts (
   # Script locations
   String $dump_classifier_path             = "${scripts_path_prefix}/sbin/dump_classifier",
   String $backup_master_to_fs              = "${scripts_path_prefix}/sbin/backup_puppet_master_db.sh",
-  String $puppet_db_script_path            = "${scripts_path_prefix}/bin/puppet_db",
+  String $puppet_facts_script_path         = "${scripts_path_prefix}/sbin/puppet_facts",
   String $puppet_list_nodes_script_path    = "${scripts_path_prefix}/sbin/puppet_list_nodes",
   String $puppet_rundeck_lists_script_path = "${scripts_path_prefix}/sbin/puppet_rundeck_lists",
   String $node_maint_script_path           = "${scripts_path_prefix}/sbin/puppet_node_maintenance",
@@ -165,7 +165,7 @@ class utility_scripts (
       ),
     }
 
-    file { $puppet_db_script_path:
+    file { $puppet_facts_script_path:
       ensure  => file,
       owner   => $file_owner,
       group   => $file_group,
