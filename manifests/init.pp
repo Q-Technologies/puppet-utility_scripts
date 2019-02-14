@@ -30,9 +30,11 @@ class utility_scripts (
   # Script locations
   String $dump_classifier_path             = "${scripts_path_prefix}/sbin/dump_classifier",
   String $backup_master_to_fs              = "${scripts_path_prefix}/sbin/backup_puppet_master_db.sh",
-  String $puppet_facts_script_path         = "${scripts_path_prefix}/sbin/puppet_facts",
-  String $puppet_list_nodes_script_path    = "${scripts_path_prefix}/sbin/puppet_list_nodes",
-  String $puppet_rundeck_lists_script_path = "${scripts_path_prefix}/sbin/puppet_rundeck_lists",
+  String $puppet_facts_script_path         = "${scripts_path_prefix}/bin/puppet_facts",
+  String $puppet_list_nodes_script_path    = "${scripts_path_prefix}/bin/puppet_list_nodes",
+  String $puppet_rundeck_lists_script_path = "${scripts_path_prefix}/bin/puppet_rundeck_lists",
+  String $puppet_groups_script_path        = "${scripts_path_prefix}/bin/puppet_groups",
+  String $puppet_reports_script_path       = "${scripts_path_prefix}/bin/puppet_reports",
   String $node_maint_script_path           = "${scripts_path_prefix}/sbin/puppet_node_maintenance",
   String $role_maint_script_path           = "${scripts_path_prefix}/sbin/puppet_role_maintenance",
 
@@ -51,7 +53,7 @@ class utility_scripts (
   # Permissions of the files
   String $file_owner = 'root',
   String $file_group = 'root',
-  String $data_mode = '0640',
+  String $data_mode = '0644',
   String $script_mode = '0755',
 ) {
 
@@ -152,6 +154,32 @@ class utility_scripts (
 
   # The rest of the scripts will be installed if asked to from Hiera
   if $inventory_scripts_install {
+    file { $puppet_groups_script_path:
+      ensure  => file,
+      owner   => $file_owner,
+      group   => $file_group,
+      mode    => $script_mode,
+      content => epp( 'utility_scripts/puppet_groups.pl.epp', {
+        api_access_config_path => $api_access_config_path,
+        perl_path              => $perl_path,
+        perl_lib_path          => $perl_lib_path,
+        }
+      ),
+    }
+
+    file { $puppet_reports_script_path:
+      ensure  => file,
+      owner   => $file_owner,
+      group   => $file_group,
+      mode    => $script_mode,
+      content => epp( 'utility_scripts/puppet_reports.pl.epp', {
+        api_access_config_path => $api_access_config_path,
+        perl_path              => $perl_path,
+        perl_lib_path          => $perl_lib_path,
+        }
+      ),
+    }
+
     file { $puppet_list_nodes_script_path:
       ensure  => file,
       owner   => $file_owner,

@@ -74,7 +74,7 @@ my $classify = Puppet::Classify->new(
                   puppet_db       => $puppet_db,
                 );
 
-# Preliminary input checks
+# Help message
 if( $opt_h ){
     say "\n$0 $format-a action [group|fact name|node] $values";
     say "\nThe following actions are supported:";
