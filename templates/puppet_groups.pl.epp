@@ -10,15 +10,12 @@ use strict;
 use lib '<%= $perl_lib_path %>';
 <% } %>
 use Data::Dumper;
-use String::CamelCase qw( camelize );
-use POSIX qw(strftime);
 use Puppet::DB;
 use Puppet::Classify;
-use Term::ANSIColor;
-use YAML;
+use YAML qw(LoadFile Dump);
 use JSON; # imports encode_json, decode_json, to_json and from_json
-use 5.10.0;
 use Getopt::Std;
+use 5.10.0;
 
 # Command line argument processing
 our( $opt_f, $opt_h );
