@@ -160,9 +160,10 @@ class utility_scripts (
       group   => $file_group,
       mode    => $script_mode,
       content => epp( 'utility_scripts/puppet_groups.pl.epp', {
-        api_access_config_path => $api_access_config_path,
-        perl_path              => $perl_path,
-        perl_lib_path          => $perl_lib_path,
+        puppet_classify_environment => $puppet_classify_environment,
+        api_access_config_path      => $api_access_config_path,
+        perl_path                   => $perl_path,
+        perl_lib_path               => $perl_lib_path,
         }
       ),
     }

@@ -22,9 +22,8 @@ use Puppet::Classify;
 use YAML qw(LoadFile);
 use 5.10.0;
 
-my $config = LoadFile( "<%= $api_access_config_path %>" );
-
 # Globals
+my $config = LoadFile( "<%= $api_access_config_path %>" );
 my $puppet_db = Puppet::DB->new(
     server_name => $config->{puppetdb_host},
     server_port => $config->{puppetdb_port},
@@ -46,7 +45,7 @@ my $groups = $classify->get_groups();
 my @role_groups;
 for my $group ( @$groups ){
 	push @role_groups, $group if $group->{name} =~ /^role::/i;
-	$parent_id = $group->{id} if $group->{name} eq "Roles";
+	$parent_id = $group->{id} if $group->{name} eq $roles_parent_group;
 }
 
 if( $action eq "create_missing_role_groups" ){
@@ -57,16 +56,12 @@ if( $action eq "create_missing_role_groups" ){
     say "Updating the class cache";
     $classify->update_classes();
 } else {
-    say "Unknown action??";
-    exit 1;
+    $log->fatal_err( "Unknown action??" );
 }
 
 
 sub create_role_groups {
-    if( not $parent_id ){
-        say "Could not find the parent ID (i.e. the top group)";
-        exit 1;
-    }
+    $log->fatal_err( "Could not find the parent ID (i.e. the top group)" ) unless $parent_id;
 
     # Update classes - i.e. refresh the environment cache
     say "Updating the class cache";
@@ -83,6 +78,8 @@ sub create_role_groups {
                 my $role = $role_group->{name};
                 if( lc($role) eq lc(camelize($class->{name})) ){
                     $found = 1;
+                    # Update the environment to match the currently desired environment
+                    $classify->update_group_environment( $role_group->{id}, $classify->environment );
                     last;
                 }
             }
