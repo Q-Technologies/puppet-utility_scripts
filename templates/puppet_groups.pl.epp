@@ -42,7 +42,7 @@ getopts('a:hf:');
 $Getopt::Std::STANDARD_HELP_VERSION = 1;
 
 # Main script actions - i.e. how to interpret the other command line arguments
-my @actions = qw(add_agent_env delete_group list_groups);
+my @actions = qw(add_agent_env delete_group list_groups get_group_id);
 
 # Help message
 if( $opt_h ){
@@ -73,6 +73,15 @@ if( $opt_a eq "add_agent_env" ){
 
     agent_specified_env( $parent_id, $parent_group );
 
+} elsif( $opt_a eq "get_group_id" ){
+    my $group_name = $ARGV[0];
+    $log->fatal_err( "Please specify the group" ) unless $group_name;
+    my $group_id = $classify->get_group_id( $group_name );
+    if( $group_id ){
+        say "Group ID: ".color('magenta').$group_id.color('reset');
+    } else {
+        $log->fatal_err( "No such group was found: $group_name" );
+    }
 } elsif( $opt_a eq "delete_group" ){
     my $group_name = $ARGV[0];
     $log->fatal_err( "Please specify the group to be deleted" ) unless $group_name;
