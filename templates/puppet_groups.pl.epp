@@ -19,6 +19,7 @@ use 5.10.0;
 
 # Globals
 my $config = LoadFile( "<%= $api_access_config_path %>" );
+my $json = JSON->new->allow_nonref;
 
 my $puppet_db = Puppet::DB->new(
     server_name => $config->{puppetdb_host},
@@ -36,8 +37,8 @@ my $classify = Puppet::Classify->new(
 my $log = Log::MixedColor->new;
 
 # Command line argument processing
-our( $opt_a, $opt_h );
-getopts('a:h');
+our( $opt_a, $opt_h, $opt_f );
+getopts('a:hf:');
 $Getopt::Std::STANDARD_HELP_VERSION = 1;
 
 # Main script actions - i.e. how to interpret the other command line arguments
