@@ -16,10 +16,17 @@ use Term::ANSIColor;
 use YAML qw(LoadFile Dump);
 use Getopt::Std;
 use Log::MixedColor;
+use ColorDiff;
 use 5.10.0;
 
 # Set up logging
 my $log = Log::MixedColor->new;
+
+# Set up a diff color object
+my $cd = ColorDiff->new;
+$cd->file_old( color('red' );
+$cd->file_new( color('green' );
+$cd->diff_stuff( color('cyan' );
 
 # Command line argument processing
 our( $opt_h, $opt_v, $opt_d, $opt_s, $opt_r, $opt_n, $opt_m, $opt_g, $opt_j, $opt_t, $opt_e );
@@ -112,6 +119,32 @@ for my $report ( @$data ){
     my $hash = $report->{hash};
     $puppet_db->refresh( "reports/$hash/events" );
     my $events = $puppet_db->results;
+    $puppet_db->refresh( "reports/$hash/logs" );
+    my $logs = $puppet_db->results;
+    my $log_data = {};
+    for my $log ( @$logs ){
+        # The logs cannot be directly tied to events, but we can match the message in the event 
+        # with a message in the logs.  Then we can look for other log messages for the same source 
+        # within the log
+        my $message = $log->{message};
+        my $source = $log->{source};
+        push @{ $log_data->{$source} }, $message;
+    }
+    my $log_diff = {};
+    for my $source ( keys %$log_data ){
+        my $key = '';
+        my $value = '';
+        for my $message ( @{ $log_data->{$source} } ){
+            # We are assuming only 2 messages for the same source when the content of files change
+            if( $message =~ /md5/ ){
+                $key = $message;
+                #say color('cyan').$key.color('reset');
+            } else {
+                $value = $message;
+            }
+        }
+        $log_diff->{$key} = $value if $key;
+    }
     for my $event ( @$events ){
         my $changed = "changed";
         my $status_color = 'green';
@@ -126,7 +159,7 @@ for my $report ( @$data ){
             $changed = "would have changed";
             $status_color = 'red';
         }
-        my $new_value_color = 'cyan';
+        my $new_value_color = 'blue';
         if( $event->{new_value} =~ /purged|stopped/ ){
             $new_value_color = 'red';
         }
@@ -152,7 +185,20 @@ for my $report ( @$data ){
                 " to: ".
                 color($new_value_color).$event->{new_value}.color('reset').
                 color($status_color)." ($status)".color('reset');
-            say color('green').$event->{certname}.color('reset').": ".$event->{message} if $opt_v;
+            say color('green').$event->{certname}.color('reset').": ".color('magenta').$event->{message}.color('reset') if $opt_v;
+            #say color('blue').Dumper( $logs ).color('reset');
+            #say $log_diff->{$event->{message}}.color('reset') if $opt_v and $log_diff->{$event->{message}};
+            if( $opt_v and $log_diff->{$event->{message}} ){
+                my $diff = $log_diff->{$event->{message}};
+                $diff =~ s/\n/\n::::::/g;
+                my @diff = split /::::::/, $diff;
+                $cd->colorize( \@diff );
+                #my @c_diff = `echo -e '$diff' | colordiff`;
+                for( @diff ){
+                    DiffHighlight::handle_line( $_ );
+                }
+                DiffHighlight::flush();
+            }
             print color('green').$event->{certname}.color('reset').": " if $opt_e or $opt_t;
             print "Environment was '".$event->{environment}."'" if $opt_e;
             print ", " if $opt_e and $opt_t;
