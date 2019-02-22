@@ -17,6 +17,7 @@ use YAML qw(LoadFile Dump);
 use Getopt::Std;
 use Log::MixedColor;
 use ColorDiff;
+use DiffHighlight;
 use 5.10.0;
 
 # Set up logging
