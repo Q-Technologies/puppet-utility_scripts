@@ -124,7 +124,7 @@ sub agent_specified_env {
                  'and',
                  [
                     '~',
-                    'hostname',
+                    'name',
                     '.*'
                  ]
                ];
