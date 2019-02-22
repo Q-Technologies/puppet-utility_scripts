@@ -22,6 +22,9 @@ use Puppet::Classify;
 use YAML qw(LoadFile);
 use 5.10.0;
 
+# Set up logging
+my $log = Log::MixedColor->new;
+
 # Globals
 my $config = LoadFile( "<%= $api_access_config_path %>" );
 my $puppet_db = Puppet::DB->new(
