@@ -24,9 +24,9 @@ my $log = Log::MixedColor->new;
 
 # Set up a diff color object
 my $cd = ColorDiff->new;
-$cd->file_old( color('red' );
-$cd->file_new( color('green' );
-$cd->diff_stuff( color('cyan' );
+$cd->file_old( color('red' ) );
+$cd->file_new( color('green' ) );
+$cd->diff_stuff( color('cyan' ) );
 
 # Command line argument processing
 our( $opt_h, $opt_v, $opt_d, $opt_s, $opt_r, $opt_n, $opt_m, $opt_g, $opt_j, $opt_t, $opt_e );
