@@ -1,6 +1,6 @@
 {
   "name": "qtechnologies-utility_scripts",
-  "version": "1.0.0",
+  "version": "0.5.0",
   "author": "Q-Technologies",
   "summary": "installs scripts to help with the admin/consumption of Puppet",
   "license": "Apache-2.0",
