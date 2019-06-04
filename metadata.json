@@ -47,7 +47,7 @@
     "baseline",
     "change control"
   ],
-  "pdk-version": "1.7.1",
+  "pdk-version": "1.9.1",
   "template-url": "file:///opt/puppetlabs/pdk/share/cache/pdk-templates.git",
-  "template-ref": "1.7.1-0-g810b982"
+  "template-ref": "1.9.1-0-g6945d31"
 }
