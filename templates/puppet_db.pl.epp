@@ -120,9 +120,11 @@ $data_format = "yaml" unless $data_format;
 
 # Restrict the facts that are returned in the output
 my $restrict_re = $opt_r;
-for( $restrict_re ){
-    s/,/|/g;
-    s/\./\\\./g;
+if( $restrict_re ) {
+    for( $restrict_re ){
+        s/,/|/g;
+        s/\./\\\./g;
+    }
 }
 
 # Mainline
