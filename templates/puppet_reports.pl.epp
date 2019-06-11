@@ -161,7 +161,7 @@ for my $report ( @$data ){
             $status_color = 'red';
         }
         my $new_value_color = 'blue';
-        if( $event->{new_value} =~ /purged|stopped/ ){
+        if( $event->{new_value} and $event->{new_value} =~ /purged|stopped/ ){
             $new_value_color = 'red';
         }
         if( (
