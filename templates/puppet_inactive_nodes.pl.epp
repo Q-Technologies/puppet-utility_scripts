@@ -1,0 +1,46 @@
+#!<%= $perl_path %>
+
+# This script is for listing inactive nodes from the Puppet DB
+#
+#   Author M. Mallard 11 Jun 2019
+#
+
+use strict;
+use Puppet::DB;
+use YAML qw(LoadFile Dump);
+use Getopt::Std;
+use 5.10.0;
+
+# Command line argument processing
+our( $opt_a, $opt_h );
+getopts('ha:');
+$Getopt::Std::STANDARD_HELP_VERSION = 1;
+
+# Preliminary input checks
+if( $opt_h ){
+    say "\n$0 [-a age]";
+    say;
+    say "\t-a age of last report (default 24 hours)";
+    say;
+    exit;
+}
+my $ref_time = time - ($opt_a // 24) * 3600; # seconds ago
+
+# Globals
+my $config = LoadFile( "<%= $api_access_config_path %>" );
+
+# Create a Puppet DB object
+my $puppet_db = Puppet::DB->new(
+    server_name => $config->{puppetdb_host},
+    server_port => $config->{puppetdb_port},
+);
+
+# Refresh the PuppetDB object with the new rule
+$puppet_db->refresh( "nodes" );
+my $data = $puppet_db->results;
+
+for my $node ( @$data ){
+    my $report_timestamp = $node->{report_timestamp};
+    my $time = $puppet_db->parse_puppetdb_time( $node->{report_timestamp} );
+    say $node->{certname}.", last report:".$node->{report_timestamp} if $time < $ref_time;
+}

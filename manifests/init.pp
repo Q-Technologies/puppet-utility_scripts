@@ -35,6 +35,7 @@ class utility_scripts (
   String $puppet_rundeck_lists_script_path = "${scripts_path_prefix}/bin/puppet_rundeck_lists",
   String $puppet_groups_script_path        = "${scripts_path_prefix}/bin/puppet_groups",
   String $puppet_reports_script_path       = "${scripts_path_prefix}/bin/puppet_reports",
+  String $puppet_inactive_nodes_script_path= "${scripts_path_prefix}/bin/puppet_inactive_nodes",
   String $node_maint_script_path           = "${scripts_path_prefix}/sbin/puppet_node_maintenance",
   String $role_maint_script_path           = "${scripts_path_prefix}/sbin/puppet_role_maintenance",
 
@@ -164,6 +165,18 @@ class utility_scripts (
         api_access_config_path      => $api_access_config_path,
         perl_path                   => $perl_path,
         perl_lib_path               => $perl_lib_path,
+        }
+      ),
+    }
+
+    file { $puppet_inactive_nodes_script_path:
+      ensure  => file,
+      owner   => $file_owner,
+      group   => $file_group,
+      mode    => $script_mode,
+      content => epp( 'utility_scripts/puppet_inactive_nodes.pl.epp', {
+        api_access_config_path => $api_access_config_path,
+        perl_path              => $perl_path,
         }
       ),
     }
