@@ -53,6 +53,8 @@ for my $group ( @$groups ){
 
 if( $action eq "create_missing_role_groups" ){
     create_role_groups();
+} elsif( $action eq "list_orphaned_roles" ){
+    list_orphaned_roles();
 } elsif( $action eq "delete_role_groups" ){
     delete_role_groups();
 } elsif( $action eq "update_classes" ){
@@ -128,4 +130,16 @@ sub delete_role_groups {
     }
 }
 
-
+sub list_orphaned_roles {
+    my $mode = "nodes";
+    my @ans;
+    for my $role_group ( @role_groups ){
+        my $rule = $classify->get_group_rule( $role_group->{name} );
+        my $role = $rule->[-1][-1];
+        $rule = $classify->convert_rule_for_puppetdb( $rule );
+        $puppet_db->refresh($mode, $rule);
+        my $number = @{ $puppet_db->results };
+        push @ans, $role if $number < 1;
+    }
+    say join("\n", sort @ans);
+}
