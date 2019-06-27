@@ -41,7 +41,13 @@ my $puppet_db = Puppet::DB->new(
     server_port => $config->{puppetdb_port},
 );
 chomp( my $query_date = `date  -d "1 day ago" +"%Y-%m-%d"` );
-$puppet_db->refresh( "nodes", {query => [ qw(>= report_timestamp), "$query_date 00:00:00" ]} );
+my $rule = {query => [ "and",
+                       [ ">=", "report_timestamp", "$query_date 00:00:00" ],
+                       [ "not",
+                         [ "=", ["fact", "kernel"], "windows" ]
+                       ],
+                     ]};
+$puppet_db->refresh( "nodes", $rule );
 my $nodes = $puppet_db->results;
 my @nodes;
 for my $node ( @$nodes ){
