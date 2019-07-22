@@ -73,7 +73,7 @@ for my $host ( @nodes ){
     for my $attr ( @$attribute_list ){
 	    push @line,  $clean_facts->{$host}{$attr};
     }
-    $csv .= join( ",", @line)."\r\n";
+    $csv .= '"'.join( '","', @line)."\"\r\n";
 
 }
 
