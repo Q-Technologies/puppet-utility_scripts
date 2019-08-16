@@ -7,7 +7,8 @@
 # It makes the following assumptions:
 #   * The parent group is 'Roles' - do not change this group!
 #   * all role classes begin with 'role::'
-#   * each node has a fact called 'trusted.extensions.pp_role' specifying it's role without the 'role::' prefix
+#   * each node has a fact called 'trusted.extensions.pp_role' specifying it's role (which is the last field in
+#   role::os::our_role, e.g. our_role)
 #
 #   Author M. Mallard 9 Feb 2016 - Updated October 2018 for new Puppet master
 #
@@ -98,7 +99,8 @@ sub create_role_groups {
 
     for my $class( @missing_classes ){
         my $role = $class;
-        $role =~ s/role:://i;
+        # Just grab the last field of the role to match the trusted fact
+        $role =~ s/^.*:://i;
         my $rule = [
                     'and',
                     [
