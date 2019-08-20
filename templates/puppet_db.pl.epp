@@ -93,13 +93,13 @@ if( $opt_h ){
     } else {
         say '';
     }
-    say "\t-f data format to output (defaults to yaml)";
+    say "\t-f data format to output (defaults to yaml, can also be csv or json)" unless $scriptname =~ /list_nodes/i;
     say '';
     say "\t-v is to show verbose messages";
     say "\t-d is to show debug messages";
     say '';
     if( $scriptname =~ /rundeck/i ){
-        say "-u the user to use for SSH access for Rundeck";
+        say "\t-u the user to use for SSH access for Rundeck";
         say '';
     }
     exit;
