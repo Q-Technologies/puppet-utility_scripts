@@ -37,7 +37,7 @@ $Getopt::Std::STANDARD_HELP_VERSION = 1;
 # Preliminary input checks
 if( $opt_h ){
     say "\n$0 [-s status] [-v] [-d] [-g|-j] node|group|job";
-    say;
+    say '';
     say "\t-j get reports for all nodes in a puppet job";
     say "\t-g get reports for all nodes in a puppet group";
     say "\t-s match status (provide a regex string with 'failure', 'success' or 'noop')";
@@ -48,7 +48,7 @@ if( $opt_h ){
     say "\t-e show the puppet environment used for the puppet run";
     say "\t-v show additional messages";
     say "\t-d show potentially destructive changes only (removals)";
-    say;
+    say '';
     exit;
 }
 $log->fatal_err( "Cannot specify both a job and a puppet group" ) if ( $opt_g and $opt_j );

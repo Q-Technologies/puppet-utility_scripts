@@ -47,8 +47,8 @@ my @actions = qw(add_agent_env delete_group list_groups get_group_id);
 # Help message
 if( $opt_h ){
     say "\n$0 [-f csv|yaml|json] -a action [group name]";
-    say;
-    say;
+    say '';
+    say '';
     say "\t-a the action to perform";
     say "\nThe following actions are supported:";
     for( @actions ){
@@ -56,7 +56,7 @@ if( $opt_h ){
     }
     say "\t-f data format to output (defaults to json) (when listing groups)";
     say "When listing the groups the 'group name' will be treated as a sub string";
-    say;
+    say '';
     exit;
 }
 # CLA validation

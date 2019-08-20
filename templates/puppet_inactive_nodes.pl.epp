@@ -19,9 +19,9 @@ $Getopt::Std::STANDARD_HELP_VERSION = 1;
 # Preliminary input checks
 if( $opt_h ){
     say "\n$0 [-a age]";
-    say;
+    say '';
     say "\t-a age of last report (default 24 hours)";
-    say;
+    say '';
     exit;
 }
 my $ref_time = time - ($opt_a // 24) * 3600; # seconds ago

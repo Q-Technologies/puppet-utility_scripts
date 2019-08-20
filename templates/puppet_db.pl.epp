@@ -81,26 +81,26 @@ if( $opt_h ){
     for( @actions ){
         say "\t\t".$_;
     }
-    say;
+    say '';
     #say "-m is string to match. Specify as a Perl regular expression without the /'s";
     say "\t'group' is a Puppet Enterprise Console group";
     say "\t'fact name' is a PuppetDB fact in dot notation";
     say "\t'node' is a Puppet node - i.e. clientcert";
     say "\t'fact value' is required when matching a fact";
     if( $scriptname =~ /facts/i ){
-        say;
+        say '';
         say "\t-r restrict the fact fields to display ( supply a comma seperated list)";
     } else {
-        say;
+        say '';
     }
     say "\t-f data format to output (defaults to yaml)";
-    say;
+    say '';
     say "\t-v is to show verbose messages";
     say "\t-d is to show debug messages";
-    say;
+    say '';
     if( $scriptname =~ /rundeck/i ){
         say "-u the user to use for SSH access for Rundeck";
-        say;
+        say '';
     }
     exit;
 }
