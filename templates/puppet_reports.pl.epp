@@ -29,9 +29,13 @@ $cd->file_old( color('red' ) );
 $cd->file_new( color('green' ) );
 $cd->diff_stuff( color('cyan' ) );
 
+# The number of report times to list
+my $num_report_times = 20;
+
 # Command line argument processing
-our( $opt_h, $opt_v, $opt_d, $opt_s, $opt_r, $opt_n, $opt_m, $opt_g, $opt_j, $opt_t, $opt_e );
-getopts('hvds:r:n:m:gjte');
+our( $opt_h, $opt_v, $opt_d, $opt_s, $opt_r, $opt_n, $opt_m, $opt_g, $opt_j, $opt_t,
+     $opt_e, $opt_z, $opt_x, $opt_w );
+getopts('hvds:r:n:m:gjtez:xw:');
 $Getopt::Std::STANDARD_HELP_VERSION = 1;
 
 # Preliminary input checks
@@ -44,10 +48,13 @@ if( $opt_h ){
     say "\t-r match resource type (provide a regex string)";
     say "\t-n match name of resource (provide a regex string)";
     say "\t-m match message (provide a regex string)";
+    say "\t-z match report time rather than latest (ignored when matching a job)";
     say "\t-t show the time the puppet run ended";
     say "\t-e show the puppet environment used for the puppet run";
     say "\t-v show additional messages";
     say "\t-d show potentially destructive changes only (removals)";
+    say "\t-x just show report times for specified nodes and exit";
+    say "\t-w the number of report times to show (defaults to $num_report_times)";
     say '';
     exit;
 }
@@ -78,15 +85,22 @@ my $classify = Puppet::Classify->new(
 
 my $rule;
 
+my $time_query = ['=', 'latest_report?', 'true' ];
+if( $opt_z ){
+    $time_query = ['=', 'end_time', $opt_z ];
+}
+
 if( $opt_g ){
     # Get the rule that defines all the nodes in the group
     $rule = $classify->get_group_rule( $opt_g );
     $log->fatal_err( "That group was not found!  Check for typos" ) unless $rule;
     # Convert the rule from Classifier to PuppetDB format
     $rule = $classify->convert_rule_for_puppetdb( $rule );
-    $rule = [ 'and', ['=', 'latest_report?', 'true' ],
-                     $rule->{query}
-            ];
+    if( $opt_x ){
+        $rule = $rule->{query};
+    } else {
+        $rule = [ 'and', $time_query, $rule->{query} ];
+    }
 } elsif( $opt_j ){
     $log->fatal_err( "The specified job ID needs to be a number only" ) unless $opt_j =~ /^\d+$/;
     $rule = ['=', 'job_id', $opt_j ];
@@ -96,7 +110,7 @@ if( $opt_g ){
     for my $node ( @nodes ){
         push @node_list, split /,/, $node;
     }
-    if( @node_list == 1 ){
+    if( @node_list and @node_list == 1 ){
         $node_rule = ['=', 'certname', $node_list[0] ];
     } else {
         $node_rule = ['or'];
@@ -104,9 +118,11 @@ if( $opt_g ){
             push @$node_rule, ['=', 'certname', $node ];
         }
     }
-    $rule = [ 'and', ['=', 'latest_report?', 'true' ],
-                     $node_rule,
-            ];
+    if( $opt_x ){
+        $rule = $node_rule;
+    } else {
+        $rule = [ 'and', $time_query, $node_rule, ];
+    }
 } else {
     $log->fatal_err( "Please specify a node, group or job" );
 }
@@ -116,7 +132,27 @@ $rule = { query => [ 'extract', ["hash", "certname", "end_time"], $rule ] };
 $puppet_db->refresh( "reports", $rule );
 my $data = $puppet_db->results;
 
+if( $opt_x ){
+    if( $opt_w ){
+        $num_report_times = $opt_w;
+    }
+    #say Dumper( $data );
+    my %times;
+    for my $report ( @$data ){
+        push @{ $times{$report->{certname}} }, $report->{end_time};
+    }
+    for my $node ( keys %times ){
+        my @times = @{ $times{$node} };
+        @times = sort {$b cmp $a} @times;
+        my $num = $num_report_times - 1;
+        say $node;
+        say "\t".join("\n\t", @times[0..$num]);
+    }
+    exit;
+}
+
 for my $report ( @$data ){
+    my $certname = $report->{certname};
     my $hash = $report->{hash};
     $puppet_db->refresh( "reports/$hash/events" );
     my $events = $puppet_db->results;
@@ -129,6 +165,9 @@ for my $report ( @$data ){
         # within the log
         my $message = $log->{message};
         my $source = $log->{source};
+        if( $log->{level} eq 'err' ){
+            say $certname.": ".color('red').$log->{message}.color('reset');
+        }
         push @{ $log_data->{$source} }, $message;
     }
     my $log_diff = {};
