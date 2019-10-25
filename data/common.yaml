@@ -1,6 +1,7 @@
 ---
 utility_scripts::roles_parent_group: Roles
 utility_scripts::puppet_classify_environment: production
+utility_scripts::puppet_tasks_environment: production
 utility_scripts::puppet_lists_script_path: /usr/local/sbin/puppet_lists
 utility_scripts::perl_path: '/usr/bin/env perl'
 utility_scripts::perl_lib_path: ''
@@ -18,6 +19,6 @@ utility_scripts::api_access_config_default:
   puppet_classify_port: 4433
   #puppet_classify_cert: api_access
   puppet_ssl_path: "/etc/puppetlabs/puppet/ssl"
-
+  puppet_tasks_host: puppet
 
 

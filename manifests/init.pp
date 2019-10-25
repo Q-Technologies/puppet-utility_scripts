@@ -24,6 +24,9 @@ class utility_scripts (
   String $puppet_classify_environment,
   String $roles_parent_group,
 
+  # Orchestrator
+  String $puppet_tasks_environment,
+
   # Script configs
   String $scripts_config_path              = "${scripts_path_prefix}/etc",
 
@@ -162,6 +165,7 @@ class utility_scripts (
       mode    => $script_mode,
       content => epp( 'utility_scripts/puppet_groups.pl.epp', {
         puppet_classify_environment => $puppet_classify_environment,
+        puppet_tasks_environment    => $puppet_tasks_environment,
         api_access_config_path      => $api_access_config_path,
         perl_path                   => $perl_path,
         perl_lib_path               => $perl_lib_path,

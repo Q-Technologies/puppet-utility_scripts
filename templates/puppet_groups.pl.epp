@@ -10,11 +10,13 @@ use strict;
 use lib '<%= $perl_lib_path %>';
 <% } %>
 use Puppet::Classify;
-use YAML qw(LoadFile);
+use Puppet::Orchestrator;
+use YAML qw(LoadFile Dump);
 use JSON; # imports encode_json, decode_json, to_json and from_json
 use Log::MixedColor;
 use Term::ANSIColor;
 use Getopt::Std;
+use Array::Utils qw(:all);
 use 5.10.0;
 
 # Globals
@@ -33,6 +35,9 @@ my $classify = Puppet::Classify->new(
     environment     => '<%= $puppet_classify_environment %>',
     puppet_db       => $puppet_db,
 );
+# Create a Puppet orchestrator object
+my $orchestrator = Puppet::Orchestrator->new( $config->{puppet_tasks_host} );
+
 # Set up logging
 my $log = Log::MixedColor->new;
 
@@ -42,7 +47,7 @@ getopts('a:hf:');
 $Getopt::Std::STANDARD_HELP_VERSION = 1;
 
 # Main script actions - i.e. how to interpret the other command line arguments
-my @actions = qw(add_agent_env delete_group list_groups get_group_id);
+my @actions = qw(add_agent_env delete_group list_groups get_group_id list_nodes list_children list_nodes_not_in_children);
 
 # Help message
 if( $opt_h ){
@@ -112,29 +117,93 @@ if( $opt_a eq "add_agent_env" ){
     } else {
         say $json->pretty->encode( \@ans );
     }
+} elsif( $opt_a eq "list_nodes" ){
+    my $group_name = $ARGV[0];
+    $log->fatal_err( "Please specify the group to list the nodes in" ) unless $group_name;
+
+    my $nodes = $classify->get_nodes_matching_group( $group_name );
+
+    if( $opt_f eq 'csv' ){
+        for ( @$nodes ){
+            say;
+        }
+    } elsif( $opt_f eq 'yaml' ){
+        say Dump( $nodes );
+    } else {
+        say $json->pretty->encode( $nodes  );
+    }
+} elsif( $opt_a eq "list_children" ){
+    my $group_name = $ARGV[0];
+    $log->fatal_err( "Please specify the group to list the child groups in" ) unless $group_name;
+
+    my $parent_id = $classify->get_group_id( $group_name );
+    my $groups = $classify->get_group_children( $parent_id );
+    my @ans;
+    for my $group ( @$groups ){
+        push @ans, $group->{name};
+    }
+    @ans = sort @ans;
+    if( $opt_f eq 'csv' ){
+        for my $group ( @ans ){
+            say $group;
+        }
+    } elsif( $opt_f eq 'yaml' ){
+        say Dump( \@ans);
+    } else {
+        say $json->pretty->encode( \@ans );
+    }
+} elsif( $opt_a eq "list_nodes_not_in_children" ){
+    my @ans = list_nodes_not_in_children( $ARGV[0] );
+    if( $opt_f eq 'csv' ){
+        for my $group ( @ans ){
+            say $group;
+        }
+    } elsif( $opt_f eq 'yaml' ){
+        say Dump( \@ans);
+    } else {
+        say $json->pretty->encode( \@ans );
+    }
 } else {
     $log->fatal_err( "Unknown action??" );
 }
 
+sub list_nodes_not_in_children {
+    my $group_name = shift;
+    $log->fatal_err( "Please specify the group to list the child groups in" ) unless $group_name;
+
+    #say "Getting list of parent nodes";
+    my @nodes = @{ $classify->get_nodes_matching_group( $group_name ) };
+    #say "Getting the id of the parent group";
+    my $parent_id = $classify->get_group_id( $group_name );
+    #say "Getting list of child groups";
+    my $groups = $classify->get_group_children( $parent_id );
+    my @child_nodes;
+    for my $group ( @$groups ){
+    #say "Getting list of nodes in ". $group->{name};
+        # This query fails if there are no nodes in the group
+        eval {
+            push @child_nodes, @{ $classify->get_nodes_matching_group( $group->{name} ) };
+        };
+    }
+    @nodes = sort( unique( @nodes));
+    #say Dump( \@nodes );
+    @child_nodes = sort( unique( @child_nodes));
+    #say Dump( \@child_nodes );
+    my @ans = array_minus(@nodes, @child_nodes);
+    return @ans;
+}
 
 sub agent_specified_env {
     my $parent_id = shift;
     my $parent_group = shift;
-    my $rule = [
-                 'and',
-                 [
-                    '~',
-                    'name',
-                    '.*'
-                 ]
-               ];
+    my $rule = [];
     my $group_name = $parent_group." - temp";
     my $group = { name               => $group_name,
                   environment        => 'agent-specified',
                   environment_trumps => JSON::true,
                   description        => "Group for testing code through workflow",
                   parent             => $parent_id,
-                  rule               => $rule,
+                  #rule               => $rule,
                   classes            => {},
                 };
 
@@ -142,5 +211,21 @@ sub agent_specified_env {
 
     say "Creating temporary group ".color('blue').$group_name.color('reset')." under ".color('magenta').$parent_group.color('reset');
     $classify->create_group( $group );
+    my @nodes = unique( list_nodes_not_in_children( $parent_group ) );
+    my @good_nodes;
+    #say Dump( \@nodes );
+    $orchestrator->environment( '<%= $puppet_tasks_environment %>' );
+    my $jobid = $orchestrator->submit_task( "profile::hostname", {}, \@nodes );
+    #say $jobid;
+    #$orchestrator->print_output_wait($jobid);
+    $orchestrator->wait_for_job($jobid);
+    my $results = $orchestrator->get_job_results($jobid);
+    #say Dump( $results );
+    for my $event ( @{ $results->{items} } ){
+        #say join( ', ', $event->{details}{node}, $event->{type} );
+        #say $event->{details}{detail}{_error}{msg}." - it will excluded hereafter" if $event->{type} eq 'node_errored';
+        push @good_nodes, $event->{details}{node} if $event->{type} eq 'node_finished';
+    }
+    #say Dump( \@good_nodes );
+    $classify->pin_nodes_to_group( $group_name, \@good_nodes );
 }
-
