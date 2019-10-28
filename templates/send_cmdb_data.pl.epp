@@ -16,7 +16,7 @@ use Data::Dumper;
 use Puppet::DB;
 use MIME::Base64;
 use Net::SMTP;
-use YAML qw(LoadFile);
+use YAML::XS qw(LoadFile Load);
 use Hash::Flatten qw(:all);
 use 5.10.0;
 
@@ -41,7 +41,9 @@ my $puppet_db = Puppet::DB->new(
     server_port => $config->{puppetdb_port},
 );
 chomp( my $query_date = `date  -d "1 day ago" +"%Y-%m-%d"` );
-my $query_filter = Load("<%= $cmdb_filter.to_yaml %>");
+my $query_filter = Load(<<'YAML');
+<%= $cmdb_filter.to_yaml %>
+YAML
 my $rule = {query => [ "and",
                        [ ">=", "report_timestamp", "$query_date 00:00:00" ],
                        $query_filter,
