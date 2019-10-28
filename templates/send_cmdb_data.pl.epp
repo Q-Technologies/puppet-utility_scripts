@@ -41,7 +41,7 @@ my $puppet_db = Puppet::DB->new(
     server_port => $config->{puppetdb_port},
 );
 chomp( my $query_date = `date  -d "1 day ago" +"%Y-%m-%d"` );
-my $query_filter = Load("<%= $cmdb_filter %>");
+my $query_filter = Load("<%= $cmdb_filter.to_yaml %>");
 my $rule = {query => [ "and",
                        [ ">=", "report_timestamp", "$query_date 00:00:00" ],
                        $query_filter,
