@@ -72,7 +72,7 @@ my $csv = join( ",", @$headings)."\r\n";
 for my $host ( @nodes ){
     my @line;
     for my $attr ( @$attribute_list ){
-	    push @line,  $clean_facts->{$host}{$attr};
+	    push @line,  $clean_facts->{$host}{$attr} || "";
     }
     $csv .= '"'.join( '","', @line)."\"\r\n";
 
