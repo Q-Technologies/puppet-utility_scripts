@@ -53,6 +53,7 @@ class utility_scripts (
   String $send_cmdb_data_path = "${scripts_path_prefix}/sbin/puppet_send_cmdb_data",
   Data $cmdb_import_mappings = {},
   Collection $cmdb_email_to = [],
+  Collection $cmdb_filter = [],
 
   # Permissions of the files
   String $file_owner = 'root',
@@ -261,6 +262,7 @@ class utility_scripts (
           api_access_config_path => $api_access_config_path,
           cmdb_import_mappings   => $cmdb_import_mappings,
           cmdb_email_to          => $cmdb_email_to,
+          cmdb_filter            => $cmdb_filter,
           perl_path              => $perl_path,
           perl_lib_path          => $perl_lib_path,
         }),
