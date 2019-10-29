@@ -290,6 +290,8 @@ sub create_preview_group {
         say "done.";
         exit 1;
     }
+    my $group_id = $classify->get_group_id( $group_name );
+    say "The group ID of the temporary group is: ".color('blue').$group_id.color('reset');
 
 
 }
