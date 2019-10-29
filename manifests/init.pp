@@ -55,6 +55,9 @@ class utility_scripts (
   Collection $cmdb_email_to = [],
   Collection $cmdb_filter = [],
 
+  # Groups script
+  String temp_group_suffix,
+
   # Permissions of the files
   String $file_owner = 'root',
   String $file_group = 'root',
@@ -170,6 +173,7 @@ class utility_scripts (
         api_access_config_path      => $api_access_config_path,
         perl_path                   => $perl_path,
         perl_lib_path               => $perl_lib_path,
+        temp_group_suffix           => $temp_group_suffix,
         }
       ),
     }

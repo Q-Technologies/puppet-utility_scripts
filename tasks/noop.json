@@ -1,0 +1,13 @@
+{
+  "description": "Controls whether Puppet is in NOOP mode or not",
+  "input_method": "environment",
+  "implementations": [
+    {"name": "noop.rb", "requirements": ["puppet-agent"]}
+  ],
+  "parameters": {
+    "action": {
+      "description": "What action to perform on the NOOP configuration",
+      "type": "Enum[on, revert, off, show]"
+    }
+  }
+}

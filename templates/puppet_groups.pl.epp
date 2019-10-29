@@ -22,6 +22,7 @@ use 5.10.0;
 # Globals
 my $config = LoadFile( "<%= $api_access_config_path %>" );
 my $json = JSON->new->allow_nonref;
+my $temp_group_suffix = "<%= $temp_group_suffix %>";
 
 my $puppet_db = Puppet::DB->new(
     server_name => $config->{puppetdb_host},
@@ -70,13 +71,19 @@ $action_re = qr/$action_re/;
 $log->fatal_err( "You need to specify the script action: -a ".join(" | ", @actions ) ) if not $opt_a =~ $action_re;
 
 # Mainline
-if( $opt_a eq "add_agent_env" ){
+if( $opt_a eq "create_preview_group" ){
     my $parent_group = $ARGV[0];
     $log->fatal_err( "Please specify the parent group of the group you are creating" ) unless $parent_group;
     my $parent_id = $classify->get_group_id( $parent_group );
     $log->fatal_err( "The specified group could not be found in the node classifier" ) unless $parent_id;
 
-    agent_specified_env( $parent_id, $parent_group );
+    create_preview_group( $parent_id, $parent_group );
+
+} elsif( $opt_a eq "remove_preview_group" ){
+    my $parent_group = $ARGV[0];
+    $log->fatal_err( "Please specify the parent group of the group you are removing" ) unless $parent_group;
+
+    remove_preview_group( $parent_group );
 
 } elsif( $opt_a eq "get_group_id" ){
     my $group_name = $ARGV[0];
@@ -96,6 +103,23 @@ if( $opt_a eq "add_agent_env" ){
         $classify->try_remove_group( $group_name );
     } else {
         $log->fatal_err( "No such group was found: $group_name" );
+    }
+} elsif( $opt_a eq "create_group" ){
+    my $group_name = $ARGV[0];
+    my $parent_name = $ARGV[1];
+    $log->fatal_err( "Please specify the group to be created as the first argument" ) unless $group_name;
+    $log->fatal_err( "Please specify the parent of the group to be created as the second argument" ) unless $parent_name;
+    my $parent_id = $classify->get_group_id( $parent_name );
+    $log->fatal_err( "The specified group could not be found in the node classifier" ) unless $parent_id;
+    if( $group_id ){
+        say "Adding group: ".color('magenta').$group_name.' as child of parent: '.$parent_name.color('reset');
+        my $group = {
+                      name   => $group_name,
+                      parent => $parent_id,
+                    };
+        $classify->add_group_safe( $name, $group, 0 );
+    } else {
+        $log->fatal_err( "No such parent group was found: $parent_name" );
     }
 } elsif( $opt_a eq "list_groups" ){
     # Match the group substr specified on the command line - match all if none specified
@@ -193,39 +217,79 @@ sub list_nodes_not_in_children {
     return @ans;
 }
 
-sub agent_specified_env {
+sub remove_preview_group {
+    my $parent_group = shift;
+
+    # Define the temporary group
+    my $group_name = $parent_group.$temp_group_suffix;
+
+    # Find the nodes matching the group
+    my $nodes = $classify->get_nodes_matching_group( $group_name );
+
+    # Put the nodes into normal mode (Revert NOOP)
+    my $jobid = $orchestrator->submit_task( "utility_scripts::noop", { action => 'revert' }, $nodes );
+    $orchestrator->wait_for_job($jobid);
+
+    # Delete the group
+    $classify->try_remove_group( $group_name );
+}
+
+sub create_preview_group {
     my $parent_id = shift;
     my $parent_group = shift;
     my $rule = [];
-    my $group_name = $parent_group." - temp";
-    my $group = { name               => $group_name,
+
+    # Define the temporary group
+    my $group_name = $parent_group.$temp_group_suffix;
+    my $group = { 
+                  name               => $group_name,
                   environment        => 'agent-specified',
                   environment_trumps => JSON::true,
                   description        => "Group for testing code through workflow",
                   parent             => $parent_id,
-                  #rule               => $rule,
                   classes            => {},
                 };
 
-
-
+    # Create the temp node group
     say "Creating temporary group ".color('blue').$group_name.color('reset')." under ".color('magenta').$parent_group.color('reset');
     $classify->create_group( $group );
     my @nodes = unique( list_nodes_not_in_children( $parent_group ) );
-    my @good_nodes;
     #say Dump( \@nodes );
     $orchestrator->environment( '<%= $puppet_tasks_environment %>' );
-    my $jobid = $orchestrator->submit_task( "profile::hostname", {}, \@nodes );
+
+    # Run a job to find out which nodes are responding properly to the orchestrator
+    my $jobid = $orchestrator->submit_task( "utility_scripts::quicktest", {}, \@nodes );
     #say $jobid;
     #$orchestrator->print_output_wait($jobid);
     $orchestrator->wait_for_job($jobid);
     my $results = $orchestrator->get_job_results($jobid);
     #say Dump( $results );
+    my @good_nodes;
     for my $event ( @{ $results->{items} } ){
         #say join( ', ', $event->{details}{node}, $event->{type} );
         #say $event->{details}{detail}{_error}{msg}." - it will excluded hereafter" if $event->{type} eq 'node_errored';
         push @good_nodes, $event->{details}{node} if $event->{type} eq 'node_finished';
     }
     #say Dump( \@good_nodes );
+
+    # Pin the good nodes to the temp group
     $classify->pin_nodes_to_group( $group_name, \@good_nodes );
+
+    # Put the nodes in the group in NOOP and check we were successful
+    $jobid = $orchestrator->submit_task( "utility_scripts::noop", { action => 'on' }, \@good_nodes );
+    $orchestrator->wait_for_job($jobid);
+    my $results = $orchestrator->get_job_results($jobid);
+    #say Dump( $results );
+    my @noop_nodes;
+    for my $event ( @{ $results->{items} } ){
+        push @noop_nodes, $event->{details}{node} if $event->{type} eq 'node_finished';
+    }
+    unless( @noop_nodes == @good_nodes ){
+        print "Failed to put all nodes into NOOP mode, cleaning up...";
+        remove_preview_group( $parent_group );
+        say "done.";
+        exit 1;
+    }
+
+
 }

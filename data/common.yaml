@@ -10,6 +10,7 @@ utility_scripts::inventory_scripts_install: false
 utility_scripts::scripts_path_prefix: '/usr/local'
 utility_scripts::backup_destination_path: '/var/backup/puppetlabs'
 utility_scripts::required_paths_default: []
+utility_scripts::temp_group_suffix: " - temp"
 
 # Puppet DB connection settings
 utility_scripts::api_access_config_default:
