@@ -2,6 +2,6 @@
   "description": "A simple task to check connectivity",
   "input_method": "environment",
   "implementations": [
-    {"name": "ruby_test.rb", "requirements": ["puppet-agent"]}
+    {"name": "quicktest.rb", "requirements": ["puppet-agent"]}
   ]
 }
