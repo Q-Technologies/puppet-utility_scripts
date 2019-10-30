@@ -48,7 +48,16 @@ getopts('a:hf:');
 $Getopt::Std::STANDARD_HELP_VERSION = 1;
 
 # Main script actions - i.e. how to interpret the other command line arguments
-my @actions = qw(add_agent_env delete_group list_groups get_group_id list_nodes list_children list_nodes_not_in_children);
+my @actions = qw( 
+                  create_preview_group
+                  remove_preview_group
+                  delete_group
+                  list_groups 
+                  get_group_id
+                  list_nodes
+                  list_children
+                  list_nodes_not_in_children
+                );
 
 # Help message
 if( $opt_h ){
