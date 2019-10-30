@@ -27,6 +27,9 @@ class utility_scripts (
   # Orchestrator
   String $puppet_tasks_environment,
 
+  # Groups script
+  String $temp_group_suffix,
+
   # Script configs
   String $scripts_config_path              = "${scripts_path_prefix}/etc",
 
@@ -54,9 +57,6 @@ class utility_scripts (
   Data $cmdb_import_mappings = {},
   Collection $cmdb_email_to = [],
   Collection $cmdb_filter = [],
-
-  # Groups script
-  String temp_group_suffix,
 
   # Permissions of the files
   String $file_owner = 'root',
