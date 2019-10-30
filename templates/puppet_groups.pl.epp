@@ -259,6 +259,9 @@ sub create_preview_group {
                   classes            => {},
                 };
 
+    # Make sure the group doesn't exit already
+    $classify->try_remove_group( $group_name );
+
     # Create the temp node group
     say "Creating temporary group ".color('blue').$group_name.color('reset')." under ".color('magenta').$parent_group.color('reset');
     $classify->create_group( $group );
