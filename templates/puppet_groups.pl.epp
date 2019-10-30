@@ -120,13 +120,13 @@ if( $opt_a eq "create_preview_group" ){
     $log->fatal_err( "Please specify the parent of the group to be created as the second argument" ) unless $parent_name;
     my $parent_id = $classify->get_group_id( $parent_name );
     $log->fatal_err( "The specified group could not be found in the node classifier" ) unless $parent_id;
-    if( $group_id ){
+    if( $parent_id ){
         say "Adding group: ".color('magenta').$group_name.' as child of parent: '.$parent_name.color('reset');
         my $group = {
                       name   => $group_name,
                       parent => $parent_id,
                     };
-        $classify->add_group_safe( $name, $group, 0 );
+        $classify->add_group_safe( $group_name, $group, 0 );
     } else {
         $log->fatal_err( "No such parent group was found: $parent_name" );
     }
