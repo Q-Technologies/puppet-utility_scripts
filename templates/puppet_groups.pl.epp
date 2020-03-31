@@ -304,6 +304,7 @@ sub create_preview_group {
         say "done.";
         say "These nodes had errors: ";
         say Dump( \%noop_failed );
+        say "The failed Puppet Task was $jobid";
         exit 1;
     }
     my $group_id = $classify->get_group_id( $group_name );
