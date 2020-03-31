@@ -293,13 +293,17 @@ sub create_preview_group {
     my $results = $orchestrator->get_job_results($jobid);
     #say Dump( $results );
     my @noop_nodes;
+    my %noop_failed;
     for my $event ( @{ $results->{items} } ){
         push @noop_nodes, $event->{details}{node} if $event->{type} eq 'node_finished';
+        $noop_failed{$event->{details}{node}} = $event->{details}{detail}{_error}{msg} if $event->{type} eq 'node_failed';
     }
     unless( @noop_nodes == @good_nodes ){
         print "Failed to put all nodes into NOOP mode, cleaning up...";
         remove_preview_group( $parent_group );
         say "done.";
+        say "These nodes had errors: ";
+        say Dump( \%noop_failed );
         exit 1;
     }
     my $group_id = $classify->get_group_id( $group_name );
