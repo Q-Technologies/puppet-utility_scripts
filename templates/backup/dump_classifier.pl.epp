@@ -45,7 +45,7 @@ my $classify = Puppet::Classify->new(
                   server_name     => $config->{puppet_classify_host},
                   server_port     => $config->{puppet_classify_port},
                   cert_name       => $config->{puppet_classify_cert},
-                  puppet_db       => Puppet::DB->newPuppet::DB->new(
+                  puppet_db       => Puppet::DB->new(
                                         server_name => $config->{puppetdb_host},
                                         server_port => $config->{puppetdb_port},
                                      ),
