@@ -8,7 +8,7 @@
 
 use strict;
 use 5.10.0;
-<% if $perl_lib_path { %>
+<% if !empty($perl_lib_path) { %>
 use lib '<%= $perl_lib_path %>';
 <% } %>
 use YAML::XS qw(Dump Load LoadFile);
@@ -43,10 +43,11 @@ my $json = JSON->new->allow_nonref;
 #my $classify = Puppet::Classify->new( $config->{puppet_classify_host} );
 my $classify = Puppet::Classify->new( 
                   server_name     => $config->{puppet_classify_host},
+                  server_port     => $config->{puppet_classify_port},
                   cert_name       => $config->{puppet_classify_cert},
                   puppet_db       => Puppet::DB->newPuppet::DB->new(
                                         server_name => $config->{puppetdb_host},
-                                        server_port => $config->{puppetdb_host},
+                                        server_port => $config->{puppetdb_port},
                                      ),
                   puppet_ssl_path => $config->{puppet_ssl_path},
                 );
