@@ -1,6 +1,6 @@
 {
   "name": "qtechnologies-utility_scripts",
-  "version": "0.5.0",
+  "version": "1.0.0",
   "author": "Q-Technologies",
   "summary": "installs scripts to help with the admin/consumption of Puppet",
   "license": "Apache-2.0",
@@ -47,7 +47,7 @@
     "baseline",
     "change control"
   ],
-  "pdk-version": "1.17.0",
-  "template-url": "pdk-default#1.17.0",
-  "template-ref": "tags/1.17.0-0-gd3a4319"
+  "pdk-version": "1.18.1",
+  "template-url": "pdk-default#1.18.1",
+  "template-ref": "tags/1.18.1-0-g3d2e75c"
 }

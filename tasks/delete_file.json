@@ -1,0 +1,13 @@
+{
+  "description": "Deletes the requested file",
+  "input_method": "environment",
+  "implementations": [
+    {"name": "delete_file.rb", "requirements": ["puppet-agent"]}
+  ],
+  "parameters": {
+    "file": {
+      "description": "File to delete",
+      "type": "Optional[String[1]]"
+    }
+  }
+}
